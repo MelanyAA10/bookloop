@@ -1,122 +1,170 @@
 // src/pages/DiscoveryPage.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Tag, Badge, Avatar, Stars, BookCover, SectionLabel } from '../components/UI';
 
 const GENRES = ['All', 'Fiction', 'Science', 'History', 'Philosophy', 'Technology', 'Art'];
 
-const FEATURED = {
-  color: '#7A3728',
-  title: 'La Casa de los Espíritus',
-  author: 'Isabel Allende',
-  year: 1982,
-  pages: 450,
-  language: 'Spanish',
-  owner: { initials: 'AS', name: 'Aaron Salas', rating: 4.5 },
-  synopsis: '"La casa de los espíritus" narra la saga de la familia Trueba-Del Valle en Chile durante el siglo XX. Una obra maestra del realismo mágico latinoamericano.',
-};
+// Configuración de la API
+const API_URL = 'https://bookloop-api.azure-api.net/v1';
+const API_KEY = '6f463ca55cfe4e258de8819701678fda';
 
-const ALSO_AVAILABLE = [
-  { color: '#4A3060', title: 'Song of Achilles' },
-  { color: '#1A3C5A', title: 'The Secret' },
-];
-
-const RECENT = [
-  { color: '#6B3428', title: 'Cien Años de Soledad', author: 'García Márquez' },
-  { color: '#2D4A2D', title: 'El Alquimista',        author: 'Paulo Coelho' },
-  { color: '#3A2855', title: 'Dune',                  author: 'Frank Herbert' },
-  { color: '#1A3850', title: '1984',                  author: 'George Orwell' },
-  { color: '#5C3A1A', title: 'Don Quijote',           author: 'M. de Cervantes' },
-  { color: '#2A4A3A', title: 'El Principito',         author: 'Antoine de S.-E.' },
-  { color: '#4A2030', title: 'Rayuela',               author: 'Julio Cortázar' },
-  { color: '#303050', title: 'Ficciones',             author: 'Jorge L. Borges' },
-];
-
-/**
- * Discovery page — main browse view
- * Props:
- *   onNavigate   – fn(page, data?)
- */
 export default function DiscoveryPage({ onNavigate = () => {} }) {
   const [activeGenre, setActiveGenre] = useState('All');
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const booksPerPage = 8;
+
+  useEffect(() => {
+    fetchBooks();
+  }, []);
+
+  const fetchBooks = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/books?subscription-key=${API_KEY}`);
+      const data = await response.json();
+      setBooks(data.data || []);
+      setTotalPages(Math.ceil((data.data?.length || 0) / booksPerPage));
+    } catch (error) {
+      console.error('Error fetching books:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredBooks = books.filter(book => {
+    const matchesGenre = activeGenre === 'All' || book.genre === activeGenre;
+    const matchesSearch = book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          book.author.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesGenre && matchesSearch;
+  });
+
+  const paginatedBooks = filteredBooks.slice(
+    (currentPage - 1) * booksPerPage,
+    currentPage * booksPerPage
+  );
+
+  const featuredBook = books.length > 0 ? books[0] : {
+    id: 1,
+    color: '#7A3728',
+    title: 'La Casa de los Espíritus',
+    author: 'Isabel Allende',
+    year: 1982,
+    pages: 450,
+    language: 'Spanish',
+    genre: 'Fiction',
+    owner: { initials: 'AS', name: 'Aaron Salas', rating: 4.5 },
+    synopsis: 'Una obra maestra del realismo mágico latinoamericano.'
+  };
+
+  const alsoAvailable = books.slice(1, 3);
 
   return (
-    <div style={{ background: '#FAF7F2', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
       <Navbar activePage="discovery" onNavigate={onNavigate} />
 
       <div style={s.body}>
-        {/* Search + filter row */}
         <div style={s.searchRow}>
           <input
             style={s.searchInput}
             placeholder="Search by title, author, or ISBN…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
           <div style={s.genreTags}>
             {GENRES.map(g => (
               <Tag key={g} active={activeGenre === g} onClick={() => setActiveGenre(g)}>{g}</Tag>
             ))}
-            <Tag>+ Filters</Tag>
           </div>
         </div>
 
-        {/* Featured highlight */}
-        <div style={s.featured}>
-          {/* Large cover */}
-          <BookCover color={FEATURED.color} title={FEATURED.title} width={200} height={280} style={{ borderRadius: 10, boxShadow: '4px 6px 24px rgba(0,0,0,0.25)' }} />
-
-          {/* Detail */}
-          <div style={s.featuredInfo}>
-            <Badge variant="default" style={{ marginBottom: 10 }}>Featured Today</Badge>
-            <h2 style={s.featuredTitle}>{FEATURED.title}</h2>
-            <p style={s.featuredMeta}>{FEATURED.author} · {FEATURED.year}</p>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-              <Tag>{FEATURED.pages} pages</Tag>
-              <Tag>{FEATURED.language}</Tag>
-              <Tag>Fiction</Tag>
-            </div>
-            <div style={s.ownerRow}>
-              <Avatar initials={FEATURED.owner.initials} size={28} />
-              <span style={{ fontSize: 13, color: '#5C4A35' }}>{FEATURED.owner.name}</span>
-              <Stars value={FEATURED.owner.rating} size={12} />
-            </div>
-            <SectionLabel style={{ marginTop: 14 }}>The Story</SectionLabel>
-            <p style={s.synopsis}>{FEATURED.synopsis}</p>
-            <div style={s.featuredActions}>
-              <button style={s.btnOutline}>Book Info</button>
-              <button style={s.btnOutline}>Condition</button>
-              <button style={s.btnPrimary} onClick={() => onNavigate('bookdetail')}>Request Loan →</button>
-            </div>
+        {loading && (
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
+            <p>Cargando libros...</p>
           </div>
+        )}
 
-          {/* Also available sidebar */}
-          <div style={s.sidebar}>
-            <SectionLabel>Also Available</SectionLabel>
-            {ALSO_AVAILABLE.map(b => (
-              <BookCover
-                key={b.title}
-                color={b.color}
-                title={b.title}
-                width="100%"
-                height={148}
-                style={{ borderRadius: 8, cursor: 'pointer', marginBottom: 10, width: '100%' }}
-              />
-            ))}
-          </div>
-        </div>
+        {!loading && (
+          <>
+            <div style={s.featured}>
+              <BookCover color={featuredBook.color} title={featuredBook.title} width={200} height={280} style={{ borderRadius: 10, boxShadow: '4px 6px 24px rgba(0,0,0,0.25)' }} />
 
-        {/* Recent additions grid */}
-        <div style={{ marginTop: 36 }}>
-          <SectionLabel style={{ marginBottom: 16, fontSize: 12 }}>Recent Additions</SectionLabel>
-          <div style={s.grid}>
-            {RECENT.map(book => (
-              <div key={book.title} style={s.gridItem} onClick={() => onNavigate('bookdetail')}>
-                <BookCover color={book.color} title={book.title} width="100%" height={130} style={{ borderRadius: 8, cursor: 'pointer', width: '100%' }} />
-                <p style={s.gridTitle}>{book.title}</p>
-                <p style={s.gridAuthor}>{book.author}</p>
+              <div style={s.featuredInfo}>
+                <Badge variant="default" style={{ marginBottom: 10 }}>Featured Today</Badge>
+                <h2 style={s.featuredTitle}>{featuredBook.title}</h2>
+                <p style={s.featuredMeta}>{featuredBook.author} · {featuredBook.year}</p>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+                  <Tag>{featuredBook.pages} pages</Tag>
+                  <Tag>{featuredBook.language}</Tag>
+                  <Tag>{featuredBook.genre}</Tag>
+                </div>
+                <div style={s.ownerRow}>
+                  <Avatar initials={featuredBook.owner?.initials || '??'} size={28} />
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{featuredBook.owner?.name || 'Unknown'}</span>
+                  <Stars value={featuredBook.owner?.rating || 0} size={12} />
+                </div>
+                <SectionLabel style={{ marginTop: 14 }}>The Story</SectionLabel>
+                <p style={s.synopsis}>{featuredBook.synopsis || 'No synopsis available.'}</p>
+                <div style={s.featuredActions}>
+                  <button style={s.btnOutline} onClick={() => onNavigate('bookdetail', { id: featuredBook.id })}>Book Info</button>
+                  <button style={s.btnPrimary} onClick={() => onNavigate('bookdetail', { id: featuredBook.id })}>Request Loan →</button>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
+
+              <div style={s.sidebar}>
+                <SectionLabel>Also Available</SectionLabel>
+                {alsoAvailable.map(book => (
+                  <div key={book.id} onClick={() => onNavigate('bookdetail', { id: book.id })} style={{ cursor: 'pointer' }}>
+                    <BookCover
+                      color={book.color}
+                      title={book.title}
+                      width="100%"
+                      height={148}
+                      style={{ borderRadius: 8, marginBottom: 10, width: '100%' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginTop: 36 }}>
+              <SectionLabel style={{ marginBottom: 16, fontSize: 12 }}>Recent Additions</SectionLabel>
+              <div style={s.grid}>
+                {paginatedBooks.map(book => (
+                  <div key={book.id} style={s.gridItem} onClick={() => onNavigate('bookdetail', { id: book.id })}>
+                    <BookCover color={book.color} title={book.title} width="100%" height={130} style={{ borderRadius: 8, cursor: 'pointer', width: '100%' }} />
+                    <p style={s.gridTitle}>{book.title}</p>
+                    <p style={s.gridAuthor}>{book.author}</p>
+                  </div>
+                ))}
+              </div>
+
+              {totalPages > 1 && (
+                <div style={s.pagination}>
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => p - 1)}
+                    style={{ ...s.pageBtn, opacity: currentPage === 1 ? 0.5 : 1 }}
+                  >
+                    ← Previous
+                  </button>
+                  <span style={s.pageInfo}>Page {currentPage} of {totalPages}</span>
+                  <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(p => p + 1)}
+                    style={{ ...s.pageBtn, opacity: currentPage === totalPages ? 0.5 : 1 }}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -127,12 +175,12 @@ const s = {
   searchRow: { display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28, flexWrap: 'wrap' },
   searchInput: {
     padding: '10px 16px',
-    border: '1.5px solid #D9CFC0',
+    border: '1.5px solid var(--border)',
     borderRadius: 8,
     fontSize: 13,
     fontFamily: "'DM Sans', sans-serif",
-    background: '#fff',
-    color: '#1A1009',
+    background: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
     minWidth: 260,
     outline: 'none',
   },
@@ -141,29 +189,29 @@ const s = {
     display: 'grid',
     gridTemplateColumns: '200px 1fr 200px',
     gap: 28,
-    background: '#fff',
-    border: '1px solid #EBE4D7',
+    background: 'var(--bg-secondary)',
+    border: '1px solid var(--border-light)',
     borderRadius: 14,
     padding: 28,
-    boxShadow: '0 4px 20px rgba(26,16,9,0.07)',
+    boxShadow: 'var(--shadow)',
   },
   featuredInfo: { display: 'flex', flexDirection: 'column' },
   featuredTitle: {
     fontFamily: "'Playfair Display', serif",
     fontSize: 24,
     fontWeight: 600,
-    color: '#1A1009',
+    color: 'var(--text-primary)',
     marginBottom: 4,
     lineHeight: 1.3,
   },
-  featuredMeta: { fontSize: 13, color: '#9E8B75', marginBottom: 12 },
+  featuredMeta: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 },
   ownerRow: { display: 'flex', alignItems: 'center', gap: 8 },
-  synopsis: { fontSize: 13, color: '#5C4A35', lineHeight: 1.7, marginBottom: 20 },
+  synopsis: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 20 },
   featuredActions: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 'auto' },
   btnOutline: {
     background: 'transparent',
-    border: '1.5px solid #8B1C1C',
-    color: '#8B1C1C',
+    border: '1.5px solid var(--crimson)',
+    color: 'var(--crimson)',
     padding: '7px 14px',
     borderRadius: 6,
     fontSize: 12,
@@ -172,7 +220,7 @@ const s = {
     cursor: 'pointer',
   },
   btnPrimary: {
-    background: '#C94040',
+    background: 'var(--crimson-light)',
     border: 'none',
     color: '#fff',
     padding: '8px 18px',
@@ -190,6 +238,30 @@ const s = {
     gap: 14,
   },
   gridItem: { cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6 },
-  gridTitle: { fontSize: 12, fontWeight: 500, color: '#1A1009', lineHeight: 1.3 },
-  gridAuthor: { fontSize: 11, color: '#9E8B75' },
+  gridTitle: { fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.3 },
+  gridAuthor: { fontSize: 11, color: 'var(--text-muted)' },
+  pagination: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 24,
+    padding: '16px 0',
+  },
+  pageBtn: {
+    background: 'var(--crimson)',
+    color: '#fff',
+    border: 'none',
+    padding: '8px 16px',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: 12,
+    fontWeight: 500,
+  },
+  pageInfo: {
+    fontSize: 13,
+    color: 'var(--text-secondary)',
+    fontFamily: "'DM Sans', sans-serif",
+  },
 };

@@ -31,8 +31,17 @@ const PAGES = {
 
 export default function App() {
   const [page, setPage] = useState('login');
+  const [selectedBookId, setSelectedBookId] = useState(null);
 
-  const navigate = (to) => {
+  const navigate = (to, data = null) => {
+    // Si se pasa un bookId, guardarlo
+    if (data && data.id) {
+      setSelectedBookId(data.id);
+    }
+    // Si navegamos a discovery, resetear el bookId seleccionado
+    if (to === 'discovery') {
+      setSelectedBookId(null);
+    }
     if (PAGES[to]) setPage(to);
   };
 
@@ -44,6 +53,11 @@ export default function App() {
   }
   if (page === 'signup') {
     return <SignupPage onSignup={() => navigate('discovery')} onLogin={() => navigate('login')} />;
+  }
+
+  // Pasar el bookId a BookDetailPage si es necesario
+  if (page === 'bookdetail') {
+    return <BookDetailPage onNavigate={navigate} bookId={selectedBookId || 1} />;
   }
 
   return <Page onNavigate={navigate} />;

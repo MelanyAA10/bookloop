@@ -5,22 +5,58 @@ import { Button, Input, Textarea, Divider } from '../components/UI';
 
 const CONDITIONS = ['Excellent', 'Good', 'Fair'];
 
-/**
- * Add Book page
- * Props:
- *   onNavigate – fn(page)
- */
+const API_URL = 'https://bookloop-api.azure-api.net/v1';
+const API_KEY = '6f463ca55cfe4e258de8819701678fda';
+
 export default function AddBookPage({ onNavigate = () => {} }) {
   const [form, setForm] = useState({
     title: '', author: '', genre: '', language: '', description: '', loanDays: '14',
+    year: new Date().getFullYear(), pages: '', color: '#7A3728', condition: 'Good'
   });
   const [condition, setCondition] = useState('Good');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  const handleSubmit = (e) => { e.preventDefault(); onNavigate('discovery'); };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    if (!form.title.trim()) {
+      setError('El título es requerido');
+      setLoading(false);
+      return;
+    }
+    if (!form.author.trim()) {
+      setError('El autor es requerido');
+      setLoading(false);
+      return;
+    }
+
+    const bookData = {
+      title: form.title, author: form.author, year: parseInt(form.year) || new Date().getFullYear(),
+      pages: parseInt(form.pages) || 200, language: form.language || 'Spanish', genre: form.genre || 'Fiction',
+      color: form.color || '#7A3728', condition: condition, loanDays: parseInt(form.loanDays) || 14,
+      synopsis: form.description, owner: { initials: 'JR', name: 'Juliet Ramos', rating: 4.8 }
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/books?subscription-key=${API_KEY}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bookData),
+      });
+      if (response.ok) onNavigate('discovery');
+      else setError('Error al crear el libro');
+    } catch (error) {
+      setError('Error de conexión con el servidor');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div style={{ background: '#FAF7F2', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
       <Navbar activePage="discovery" onNavigate={onNavigate} />
 
       <div style={s.overlay}>
@@ -34,74 +70,60 @@ export default function AddBookPage({ onNavigate = () => {} }) {
           </div>
 
           <form onSubmit={handleSubmit} style={s.body}>
+            {error && <div style={s.errorMsg}>{error}</div>}
+
             <div style={s.layout}>
-              {/* Cover upload */}
               <div style={s.coverZone}>
                 <div style={s.coverUpload}>
-                  <span style={{ fontSize: 28, color: '#D9CFC0' }}>📚</span>
-                  <span style={{ fontSize: 11, color: '#9E8B75', marginTop: 6 }}>Upload Cover</span>
+                  <span style={{ fontSize: 28, color: 'var(--text-muted)' }}>📚</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Upload Cover</span>
                 </div>
               </div>
 
-              {/* Fields */}
               <div style={s.fields}>
-                <Input label="Book Title" placeholder="e.g. Cien Años de Soledad" value={form.title} onChange={set('title')} />
-                <Input label="Author" placeholder="e.g. Gabriel García Márquez" value={form.author} onChange={set('author')} />
+                <Input label="Book Title" placeholder="e.g. Cien Años de Soledad" value={form.title} onChange={set('title')} required />
+                <Input label="Author" placeholder="e.g. Gabriel García Márquez" value={form.author} onChange={set('author')} required />
                 <div style={{ display: 'flex', gap: 10 }}>
                   <Input label="Genre" placeholder="Fiction" value={form.genre} onChange={set('genre')} style={{ flex: 1 }} />
                   <Input label="Language" placeholder="Spanish" value={form.language} onChange={set('language')} style={{ flex: 1 }} />
                 </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <Input label="Year" placeholder="2024" type="number" value={form.year} onChange={set('year')} style={{ flex: 1 }} />
+                  <Input label="Pages" placeholder="200" type="number" value={form.pages} onChange={set('pages')} style={{ flex: 1 }} />
+                </div>
               </div>
             </div>
 
-            <Textarea
-              label="Description"
-              placeholder="Tell borrowers about this book…"
-              value={form.description}
-              onChange={set('description')}
-              style={{ marginBottom: 4 }}
-            />
+            <Textarea label="Description" placeholder="Tell borrowers about this book…" value={form.description} onChange={set('description')} style={{ marginBottom: 4 }} />
 
             <Divider />
 
-            {/* Condition */}
             <p style={s.sectionLabel}>Book Condition</p>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               {CONDITIONS.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  style={{ ...s.condBtn, ...(condition === c ? s.condBtnActive : {}) }}
-                  onClick={() => setCondition(c)}
-                >
+                <button key={c} type="button" style={{ ...s.condBtn, ...(condition === c ? s.condBtnActive : {}) }} onClick={() => setCondition(c)}>
                   {c}
                 </button>
               ))}
             </div>
 
-            {/* Condition photos */}
             <p style={s.sectionLabel}>Condition Photos</p>
             <div style={s.photoGrid}>
               {['Front', 'Back', 'Spine', 'Interior'].map(label => (
                 <div key={label} style={s.photoSlot}>
-                  <span style={{ fontSize: 18, color: '#9E8B75' }}>+</span>
-                  <span style={{ fontSize: 9, color: '#9E8B75' }}>{label}</span>
+                  <span style={{ fontSize: 18, color: 'var(--text-muted)' }}>+</span>
+                  <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>{label}</span>
                 </div>
               ))}
             </div>
 
             <Divider />
 
-            <Input
-              label="Loan Period (days)"
-              type="number"
-              placeholder="14"
-              value={form.loanDays}
-              onChange={set('loanDays')}
-              style={{ maxWidth: 200, marginBottom: 20 }}
-            />
+            <Input label="Loan Period (days)" type="number" placeholder="14" value={form.loanDays} onChange={set('loanDays')} style={{ maxWidth: 200, marginBottom: 20 }} />
 
-            <Button variant="full" type="submit">List My Book →</Button>
+            <Button variant="full" type="submit" disabled={loading}>
+              {loading ? 'Creating...' : 'List My Book →'}
+            </Button>
           </form>
         </div>
       </div>
@@ -119,7 +141,7 @@ const s = {
     justifyContent: 'center',
   },
   modal: {
-    background: '#fff',
+    background: 'var(--bg-secondary)',
     borderRadius: 14,
     overflow: 'hidden',
     width: '100%',
@@ -127,7 +149,7 @@ const s = {
     boxShadow: '0 24px 60px rgba(0,0,0,0.3)',
   },
   header: {
-    background: 'linear-gradient(135deg, #5A0E0E, #8B1C1C)',
+    background: 'linear-gradient(135deg, var(--crimson-dark), var(--crimson))',
     padding: '20px 24px',
     display: 'flex',
     justifyContent: 'space-between',
@@ -146,8 +168,8 @@ const s = {
   coverZone: { display: 'flex', flexDirection: 'column' },
   coverUpload: {
     height: 185,
-    background: '#F3EDE3',
-    border: '1.5px dashed #D9CFC0',
+    background: 'var(--bg-surface)',
+    border: '1.5px dashed var(--border)',
     borderRadius: 8,
     display: 'flex',
     flexDirection: 'column',
@@ -157,32 +179,32 @@ const s = {
   },
   fields: { display: 'flex', flexDirection: 'column', gap: 12 },
   sectionLabel: {
-    fontSize: 11, fontWeight: 600, color: '#9E8B75',
+    fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
     textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8,
   },
   condBtn: {
     flex: 1,
     padding: '9px 0',
-    background: '#F3EDE3',
-    border: '1.5px solid #EBE4D7',
+    background: 'var(--bg-surface)',
+    border: '1.5px solid var(--border)',
     borderRadius: 6,
     fontSize: 12,
     fontFamily: "'DM Sans', sans-serif",
-    color: '#5C4A35',
+    color: 'var(--text-secondary)',
     cursor: 'pointer',
     fontWeight: 500,
     transition: 'all 0.18s',
   },
   condBtnActive: {
-    background: '#8B1C1C',
-    border: '1.5px solid #8B1C1C',
+    background: 'var(--crimson)',
+    border: '1.5px solid var(--crimson)',
     color: '#fff',
   },
   photoGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 },
   photoSlot: {
     height: 72,
-    background: '#F3EDE3',
-    border: '1.5px dashed #D9CFC0',
+    background: 'var(--bg-surface)',
+    border: '1.5px dashed var(--border)',
     borderRadius: 6,
     display: 'flex',
     flexDirection: 'column',
@@ -190,5 +212,13 @@ const s = {
     justifyContent: 'center',
     gap: 2,
     cursor: 'pointer',
+  },
+  errorMsg: {
+    background: '#FEE2E2',
+    color: '#DC2626',
+    padding: '10px 16px',
+    borderRadius: 8,
+    fontSize: 13,
+    marginBottom: 10,
   },
 };
