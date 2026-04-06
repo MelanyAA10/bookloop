@@ -2,9 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Badge, Tag, Avatar, Stars, BookCover, SectionLabel, Divider, Button } from '../components/UI';
-
-const API_URL = 'https://bookloop-api.azure-api.net/v1';
-const API_KEY = '6f463ca55cfe4e258de8819701678fda';
+import { apiFetch } from '../config/api';
 
 export default function BookDetailPage({ onNavigate = () => {}, bookId = 1 }) {
   const [book, setBook] = useState(null);
@@ -22,7 +20,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1 }) {
   const fetchBook = async (id) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/books/${id}?subscription-key=${API_KEY}`);
+      const response = await apiFetch(`/books/${id}`);
       const data = await response.json();
       setBook(data);
     } catch (error) {

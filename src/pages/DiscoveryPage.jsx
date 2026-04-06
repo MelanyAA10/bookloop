@@ -2,12 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Tag, Badge, Avatar, Stars, BookCover, SectionLabel } from '../components/UI';
+import { apiFetch } from '../config/api';
 
 const GENRES = ['All', 'Fiction', 'Science', 'History', 'Philosophy', 'Technology', 'Art'];
-
-// Configuración de la API
-const API_URL = 'https://bookloop-api.azure-api.net/v1';
-const API_KEY = '6f463ca55cfe4e258de8819701678fda';
 
 export default function DiscoveryPage({ onNavigate = () => {} }) {
   const [activeGenre, setActiveGenre] = useState('All');
@@ -25,7 +22,7 @@ export default function DiscoveryPage({ onNavigate = () => {} }) {
   const fetchBooks = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/books?subscription-key=${API_KEY}`);
+      const response = await apiFetch('/books');
       const data = await response.json();
       setBooks(data.data || []);
       setTotalPages(Math.ceil((data.data?.length || 0) / booksPerPage));

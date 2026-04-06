@@ -2,11 +2,9 @@
 import React, { useState } from 'react';
 import Navbar from '../components/Navbar';
 import { Button, Input, Textarea, Divider } from '../components/UI';
+import { apiFetch } from '../config/api';
 
 const CONDITIONS = ['Excellent', 'Good', 'Fair'];
-
-const API_URL = 'https://bookloop-api.azure-api.net/v1';
-const API_KEY = '6f463ca55cfe4e258de8819701678fda';
 
 export default function AddBookPage({ onNavigate = () => {} }) {
   const [form, setForm] = useState({
@@ -43,8 +41,9 @@ export default function AddBookPage({ onNavigate = () => {} }) {
     };
 
     try {
-      const response = await fetch(`${API_URL}/books?subscription-key=${API_KEY}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bookData),
+      const response = await apiFetch('/books', {
+        method: 'POST',
+        body: JSON.stringify(bookData),
       });
       if (response.ok) onNavigate('discovery');
       else setError('Error al crear el libro');
