@@ -18,7 +18,7 @@ const INITIAL_MESSAGES = [
   { sender: 'them', text: 'Just arrived at the fountain. Is that you by the sculpture?' },
 ];
 
-export default function MessagesPage({ onNavigate = () => {} }) {
+export default function MessagesPage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [active, setActive] = useState(1);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
@@ -32,7 +32,12 @@ export default function MessagesPage({ onNavigate = () => {} }) {
 
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
-      <Navbar activePage="messages" onNavigate={onNavigate} />
+      <Navbar
+        activePage="messages"
+        onNavigate={onNavigate}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+      />
 
       <div style={s.layout}>
         <div style={s.sidebar}>

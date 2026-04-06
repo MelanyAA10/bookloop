@@ -2,9 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Badge, Stars, BookCover, Card, SectionLabel, Button } from '../components/UI';
-
-const API_URL = 'https://bookloop-api.azure-api.net/v1';
-const API_KEY = '6f463ca55cfe4e258de8819701678fda';
+import { apiFetch } from '../config/api';
 
 const USER = {
   name: 'Elena Rodriguez',
@@ -16,7 +14,7 @@ const USER = {
   loans: 5,
 };
 
-export default function ProfilePage({ onNavigate = () => {} }) {
+export default function ProfilePage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [userBooks, setUserBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviews] = useState([
@@ -31,9 +29,9 @@ export default function ProfilePage({ onNavigate = () => {} }) {
   const fetchBooks = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/books?subscription-key=${API_KEY}`);
+      const response = await apiFetch('/books');
       const data = await response.json();
-      const userFiltered = (data.data || []).filter(book => 
+      const userFiltered = (data.data || []).filter(book =>
         book.owner?.initials === 'ER' || book.owner?.name === 'Elena Rodriguez'
       );
       setUserBooks(userFiltered);
@@ -52,7 +50,12 @@ export default function ProfilePage({ onNavigate = () => {} }) {
 
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
-      <Navbar activePage="profile" onNavigate={onNavigate} />
+      <Navbar
+        activePage="profile"
+        onNavigate={onNavigate}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+      />
 
       <div style={s.body}>
         <div style={s.banner} />

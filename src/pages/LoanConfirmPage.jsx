@@ -3,14 +3,19 @@ import React, { useState } from 'react';
 import Navbar from '../components/Navbar';
 import { Button, BookCover, Divider } from '../components/UI';
 
-export default function LoanConfirmPage({ onNavigate = () => {} }) {
+export default function LoanConfirmPage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [checks, setChecks] = useState({ damage: false, edition: false, agree: false });
   const toggle = k => setChecks(c => ({ ...c, [k]: !c[k] }));
   const allChecked = Object.values(checks).every(Boolean);
 
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
-      <Navbar activePage="discovery" onNavigate={onNavigate} />
+      <Navbar
+        activePage="discovery"
+        onNavigate={onNavigate}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+      />
 
       <div style={s.overlay}>
         <div style={s.modal}>

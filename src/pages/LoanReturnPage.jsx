@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import Navbar from '../components/Navbar';
 import { Button, Divider } from '../components/UI';
 
-export default function LoanReturnPage({ onNavigate = () => {} }) {
+export default function LoanReturnPage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [checks, setChecks] = useState({ damage: false, edition: false, agree: false });
   const [rating, setRating] = useState(0);
   const toggle = k => setChecks(c => ({ ...c, [k]: !c[k] }));
@@ -11,7 +11,12 @@ export default function LoanReturnPage({ onNavigate = () => {} }) {
 
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
-      <Navbar activePage="discovery" onNavigate={onNavigate} />
+      <Navbar
+        activePage="discovery"
+        onNavigate={onNavigate}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+      />
 
       <div style={s.overlay}>
         <div style={s.modal}>

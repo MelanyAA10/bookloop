@@ -2,13 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Avatar, Tag, BookCover, Card, SectionLabel, Button } from '../components/UI';
-
-const API_URL = 'https://bookloop-api.azure-api.net/v1';
-const API_KEY = '6f463ca55cfe4e258de8819701678fda';
+import { apiFetch } from '../config/api';
 
 const FILTERS = ['All', 'Reviews', 'Recommendations', 'Authors', 'Community'];
 
-export default function CommunityPage({ onNavigate = () => {} }) {
+export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [filter, setFilter] = useState('All');
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +20,7 @@ export default function CommunityPage({ onNavigate = () => {} }) {
   const fetchPosts = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/community/posts?subscription-key=${API_KEY}`);
+      const response = await apiFetch('/community/posts');
       const data = await response.json();
       setPosts(data.data || []);
     } catch (error) {
@@ -61,7 +59,12 @@ export default function CommunityPage({ onNavigate = () => {} }) {
 
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
-      <Navbar activePage="community" onNavigate={onNavigate} />
+      <Navbar
+        activePage="community"
+        onNavigate={onNavigate}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+      />
 
       <div style={s.body}>
         <div style={s.layout}>

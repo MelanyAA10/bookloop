@@ -2,11 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Badge, Tag, Avatar, Stars, BookCover, SectionLabel, Divider, Button } from '../components/UI';
+import { apiFetch } from '../config/api';
 
-const API_URL = 'https://bookloop-api.azure-api.net/v1';
-const API_KEY = '6f463ca55cfe4e258de8819701678fda';
-
-export default function BookDetailPage({ onNavigate = () => {}, bookId = 1 }) {
+export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, theme, onToggleTheme }) {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState([
@@ -22,7 +20,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1 }) {
   const fetchBook = async (id) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/books/${id}?subscription-key=${API_KEY}`);
+      const response = await apiFetch(`/books/${id}`);
       const data = await response.json();
       setBook(data);
     } catch (error) {
@@ -35,7 +33,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1 }) {
   if (loading) {
     return (
       <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
-        <Navbar activePage="discovery" onNavigate={onNavigate} />
+        <Navbar activePage="discovery" onNavigate={onNavigate} theme={theme} onToggleTheme={onToggleTheme} />
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-secondary)' }}>
           <p>Cargando libro...</p>
         </div>
@@ -46,7 +44,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1 }) {
   if (!book) {
     return (
       <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
-        <Navbar activePage="discovery" onNavigate={onNavigate} />
+        <Navbar activePage="discovery" onNavigate={onNavigate} theme={theme} onToggleTheme={onToggleTheme} />
         <div style={{ textAlign: 'center', padding: 60 }}>
           <p style={{ color: 'var(--text-secondary)' }}>Libro no encontrado</p>
           <button onClick={() => onNavigate('discovery')} style={{ color: 'var(--crimson)' }}>Volver al inicio</button>
@@ -57,7 +55,12 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1 }) {
 
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
-      <Navbar activePage="discovery" onNavigate={onNavigate} />
+      <Navbar
+        activePage="discovery"
+        onNavigate={onNavigate}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+      />
 
       <div style={s.body}>
         <button style={s.back} onClick={() => onNavigate('discovery')}>← Back to Discovery</button>
