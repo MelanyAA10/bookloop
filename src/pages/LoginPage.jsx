@@ -215,11 +215,13 @@ const s = {
     position: 'absolute',
     right: 12,
     bottom: 11,
+    background: 'transparent',
   },
 
   forgotLink: {
     color: '#8B1C1C',
     fontSize: 12,
+    background: 'transparent',
   },
 
   signupPrompt: {
@@ -231,6 +233,7 @@ const s = {
   signupLink: {
     color: '#8B1C1C',
     textDecoration: 'underline',
+    background: 'transparent',
   },
 
 
