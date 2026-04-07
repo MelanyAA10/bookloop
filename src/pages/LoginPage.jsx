@@ -225,6 +225,7 @@ const s = {
   signupPrompt: {
     textAlign: 'center',
     marginTop: 'auto',
+    color: '#1A1009',
   },
 
   signupLink: {
