@@ -1,9 +1,8 @@
-// src/config/api.js
-const API_URL = 'https://bookloop-api.azure-api.net/v1';
-const API_KEY = '6f463ca55cfe4e258de8819701678fda';
+import { API_URL, API_KEY } from './config';
 
 export const apiFetch = async (endpoint, options = {}) => {
-  const url = `${API_URL}${endpoint}?subscription-key=${API_KEY}`;
+  // Construir URL con query param subscription-key
+  const url = `${API_URL}${endpoint}${endpoint.includes('?') ? '&' : '?'}subscription-key=${API_KEY}`;
   const response = await fetch(url, {
     ...options,
     headers: {
