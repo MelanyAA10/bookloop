@@ -1,14 +1,11 @@
-import { API_URL, API_KEY } from './config';
+const API_URL = import.meta.env.VITE_API_URL || '';
+const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 export const apiFetch = async (endpoint, options = {}) => {
-  // Construir URL con query param subscription-key
-  const url = `${API_URL}${endpoint}${endpoint.includes('?') ? '&' : '?'}subscription-key=${API_KEY}`;
+  const url = `${API_URL}${endpoint}?subscription-key=${API_KEY}`;
   const response = await fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers
-    }
+    headers: { 'Content-Type': 'application/json', ...options.headers }
   });
   return response;
 };
