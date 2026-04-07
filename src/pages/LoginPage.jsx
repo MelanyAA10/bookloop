@@ -186,13 +186,17 @@ const s = {
     color: 'rgba(255,255,255,0.4)',
   },
 
+  // FIX: color hardcodeado para que nunca herede el tema oscuro del body
   formSide: {
     padding: '48px 44px',
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
+    color: '#1A1009',
+    background: '#FFFFFF',
   },
 
+  // FIX: color explícito en el heading — antes no tenía color definido
   heading: { fontSize: 28, fontWeight: 700, color: '#1A1009' },
 
   subheading: {

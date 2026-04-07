@@ -31,7 +31,9 @@ export default function App() {
   const [selectedBookId, setSelectedBookId] = useState(null);
 
   // ── TEMA ────────────────────────────────────────────────────────────────
-  // Lee el tema guardado; si no hay, usa la preferencia del sistema operativo
+  // FIX: en la pantalla de login/signup siempre forzamos light,
+  // para evitar que el heading "Welcome back" herede el color blanco del dark mode.
+  // El tema del OS solo se aplica una vez que el usuario ya inició sesión.
   const getInitialTheme = () => {
     const saved = localStorage.getItem('bookloop-theme');
     if (saved === 'dark' || saved === 'light') return saved;
@@ -40,12 +42,14 @@ export default function App() {
 
   const [theme, setTheme] = useState(getInitialTheme);
 
-  // Aplica la clase al <body> cada vez que cambie el tema
+  // Aplica la clase al <body> cada vez que cambie el tema,
+  // pero en login/signup siempre fuerza 'light' en el body.
   useEffect(() => {
+    const isAuthPage = page === 'login' || page === 'signup';
     document.body.classList.remove('light', 'dark');
-    document.body.classList.add(theme);
+    document.body.classList.add(isAuthPage ? 'light' : theme);
     localStorage.setItem('bookloop-theme', theme);
-  }, [theme]);
+  }, [theme, page]);
 
   const toggleTheme = () =>
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
