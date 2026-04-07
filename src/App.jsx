@@ -36,8 +36,17 @@ export default function App() {
   // El tema del OS solo se aplica una vez que el usuario ya inició sesión.
   const getInitialTheme = () => {
     const saved = localStorage.getItem('bookloop-theme');
-    if (saved === 'dark' || saved === 'light') return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    // Si el usuario nunca eligió explícitamente, forzar light
+    if (saved === 'dark' || saved === 'light') {
+      // Si fue el OS quien lo puso en dark (no el usuario), reseteamos a light
+      const userChose = localStorage.getItem('bookloop-theme-user-chose');
+      if (!userChose) {
+        localStorage.setItem('bookloop-theme', 'light');
+        return 'light';
+      }
+      return saved;
+    }
+    return 'light';
   };
 
   const [theme, setTheme] = useState(getInitialTheme);
@@ -51,8 +60,10 @@ export default function App() {
     localStorage.setItem('bookloop-theme', theme);
   }, [theme, page]);
 
-  const toggleTheme = () =>
+  const toggleTheme = () => {
+    localStorage.setItem('bookloop-theme-user-chose', 'true');
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  };
   // ────────────────────────────────────────────────────────────────────────
 
   const navigate = (to, data = null) => {
