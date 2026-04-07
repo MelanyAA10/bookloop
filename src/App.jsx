@@ -37,7 +37,7 @@ export default function App() {
   const getInitialTheme = () => {
     const saved = localStorage.getItem('bookloop-theme');
     if (saved === 'dark' || saved === 'light') return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return 'light'; // Siempre inicia en claro si el usuario no ha elegido tema
   };
 
   const [theme, setTheme] = useState(getInitialTheme);
