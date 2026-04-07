@@ -193,7 +193,7 @@ const s = {
     flexDirection: 'column',
   },
 
-  heading: { fontSize: 28, fontWeight: 700 },
+  heading: { fontSize: 28, fontWeight: 700, color: '#1A1009' },
 
   subheading: {
     fontSize: 14,
