@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Tag, Badge, Avatar, Stars, BookCover, SectionLabel } from '../components/UI';
-import { apiFetch } from '../config/api';
+import { apiFetch, getBookImageUrl } from '../config/api';
 
 const GENRES = ['All', 'Fiction', 'Science', 'History', 'Philosophy', 'Technology', 'Art'];
 
@@ -12,12 +12,16 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const booksPerPage = 8;
 
   useEffect(() => {
     fetchBooks();
   }, []);
+
+  // Reset to page 1 whenever the user changes the search or genre filter
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, activeGenre]);
 
   const fetchBooks = async () => {
     setLoading(true);
@@ -25,7 +29,6 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
       const response = await apiFetch('/books');
       const data = await response.json();
       setBooks(data.data || []);
-      setTotalPages(Math.ceil((data.data?.length || 0) / booksPerPage));
     } catch (error) {
       console.error('Error fetching books:', error);
     } finally {
@@ -39,6 +42,8 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
                           book.author.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesGenre && matchesSearch;
   });
+
+  const filteredTotalPages = Math.ceil(filteredBooks.length / booksPerPage) || 1;
 
   const paginatedBooks = filteredBooks.slice(
     (currentPage - 1) * booksPerPage,
@@ -93,7 +98,14 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
         {!loading && (
           <>
             <div style={s.featured}>
-              <BookCover color={featuredBook.color} title={featuredBook.title} width={200} height={280} style={{ borderRadius: 10, boxShadow: '4px 6px 24px rgba(0,0,0,0.25)' }} />
+              <BookCover
+                color={featuredBook.color}
+                title={featuredBook.title}
+                imageUrl={getBookImageUrl(featuredBook)}
+                width={200}
+                height={280}
+                style={{ borderRadius: 10, boxShadow: '4px 6px 24px rgba(0,0,0,0.25)' }}
+              />
 
               <div style={s.featuredInfo}>
                 <Badge variant="default" style={{ marginBottom: 10 }}>Featured Today</Badge>
@@ -124,6 +136,7 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
                     <BookCover
                       color={book.color}
                       title={book.title}
+                      imageUrl={getBookImageUrl(book)}
                       width="100%"
                       height={148}
                       style={{ borderRadius: 8, marginBottom: 10, width: '100%' }}
@@ -138,14 +151,21 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
               <div style={s.grid}>
                 {paginatedBooks.map(book => (
                   <div key={book.id} style={s.gridItem} onClick={() => onNavigate('bookdetail', { id: book.id })}>
-                    <BookCover color={book.color} title={book.title} width="100%" height={130} style={{ borderRadius: 8, cursor: 'pointer', width: '100%' }} />
+                    <BookCover
+                      color={book.color}
+                      title={book.title}
+                      imageUrl={getBookImageUrl(book)}
+                      width="100%"
+                      height={130}
+                      style={{ borderRadius: 8, cursor: 'pointer', width: '100%' }}
+                    />
                     <p style={s.gridTitle}>{book.title}</p>
                     <p style={s.gridAuthor}>{book.author}</p>
                   </div>
                 ))}
               </div>
 
-              {totalPages > 1 && (
+              {filteredTotalPages > 1 && (
                 <div style={s.pagination}>
                   <button
                     disabled={currentPage === 1}
@@ -154,11 +174,11 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
                   >
                     ← Previous
                   </button>
-                  <span style={s.pageInfo}>Page {currentPage} of {totalPages}</span>
+                  <span style={s.pageInfo}>Page {currentPage} of {filteredTotalPages}</span>
                   <button
-                    disabled={currentPage === totalPages}
+                    disabled={currentPage === filteredTotalPages}
                     onClick={() => setCurrentPage(p => p + 1)}
-                    style={{ ...s.pageBtn, opacity: currentPage === totalPages ? 0.5 : 1 }}
+                    style={{ ...s.pageBtn, opacity: currentPage === filteredTotalPages ? 0.5 : 1 }}
                   >
                     Next →
                   </button>

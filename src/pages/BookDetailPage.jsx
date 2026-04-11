@@ -1,16 +1,16 @@
 // src/pages/BookDetailPage.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Badge, Tag, Avatar, Stars, BookCover, SectionLabel, Divider, Button } from '../components/UI';
-import { apiFetch } from '../config/api';
+import { apiFetch, getBookImageUrl } from '../config/api';
 
 export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, theme, onToggleTheme }) {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [reviews, setReviews] = useState([
+  const reviews = [
     { initials: 'AS', name: 'Aaron S.', stars: 5, text: 'Juliet is incredibly punctual and the books are always in pristine condition.' },
     { initials: 'MR', name: 'Marcus R.', stars: 4, text: 'Great conversation about art history during the handoff.' },
-  ]);
+  ];
 
   useEffect(() => {
     const id = typeof bookId === 'object' ? bookId?.id || 1 : bookId || 1;
@@ -70,6 +70,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
             <BookCover
               color={book.color || '#7A3728'}
               title={book.title}
+              imageUrl={getBookImageUrl(book)}
               width={240}
               height={320}
               style={{ borderRadius: 10, boxShadow: '6px 8px 28px rgba(0,0,0,0.22)', width: 240, height: 320 }}

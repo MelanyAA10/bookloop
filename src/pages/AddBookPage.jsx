@@ -1,10 +1,11 @@
 // src/pages/AddBookPage.jsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Navbar from '../components/Navbar';
-import { Button, Input, Textarea, Divider } from '../components/UI';
+import { Button, Input, Textarea, Divider, ImageUploadMock } from '../components/UI';
 import { apiFetch } from '../config/api';
 
 const CONDITIONS = ['Excellent', 'Good', 'Fair'];
+const PHOTO_LABELS = ['Front', 'Back', 'Spine', 'Interior'];
 
 export default function AddBookPage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [form, setForm] = useState({
@@ -12,10 +13,17 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
     year: new Date().getFullYear(), pages: '', color: '#7A3728', condition: 'Good'
   });
   const [condition, setCondition] = useState('Good');
+  const [images, setImages] = useState(['', '', '', '']);
+  const [coverImgError, setCoverImgError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const handleImageChange = (index, url) => {
+    setImages(prev => prev.map((v, i) => i === index ? url : v));
+    if (index === 0) setCoverImgError(false);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,10 +42,19 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
     }
 
     const bookData = {
-      title: form.title, author: form.author, year: parseInt(form.year) || new Date().getFullYear(),
-      pages: parseInt(form.pages) || 200, language: form.language || 'Spanish', genre: form.genre || 'Fiction',
-      color: form.color || '#7A3728', condition: condition, loanDays: parseInt(form.loanDays) || 14,
-      synopsis: form.description, owner: { initials: 'JR', name: 'Juliet Ramos', rating: 4.8 }
+      title: form.title,
+      author: form.author,
+      year: parseInt(form.year) || new Date().getFullYear(),
+      pages: parseInt(form.pages) || 200,
+      language: form.language || 'Spanish',
+      genre: form.genre || 'Fiction',
+      color: form.color || '#7A3728',
+      condition: condition,
+      loanDays: parseInt(form.loanDays) || 14,
+      synopsis: form.description,
+      images: images.filter(Boolean),
+      cover_url: images[0] || '',
+      owner: { initials: 'JR', name: 'Juliet Ramos', rating: 4.8 }
     };
 
     try {
@@ -53,6 +70,9 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
       setLoading(false);
     }
   };
+
+  const coverUrl = images[0];
+  const showCoverImage = coverUrl && !coverImgError;
 
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
@@ -78,9 +98,20 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
 
             <div style={s.layout}>
               <div style={s.coverZone}>
-                <div style={s.coverUpload}>
-                  <span style={{ fontSize: 28, color: 'var(--text-muted)' }}>📚</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Upload Cover</span>
+                <div style={{ ...s.coverUpload, padding: showCoverImage ? 0 : undefined, overflow: 'hidden' }}>
+                  {showCoverImage ? (
+                    <img
+                      src={coverUrl}
+                      alt="Cover preview"
+                      onError={() => setCoverImgError(true)}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 7 }}
+                    />
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 28, color: 'var(--text-muted)' }}>📚</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Cover Preview</span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -113,11 +144,13 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
 
             <p style={s.sectionLabel}>Condition Photos</p>
             <div style={s.photoGrid}>
-              {['Front', 'Back', 'Spine', 'Interior'].map(label => (
-                <div key={label} style={s.photoSlot}>
-                  <span style={{ fontSize: 18, color: 'var(--text-muted)' }}>+</span>
-                  <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>{label}</span>
-                </div>
+              {PHOTO_LABELS.map((label, i) => (
+                <ImageUploadMock
+                  key={label}
+                  label={label}
+                  value={images[i]}
+                  onChange={url => handleImageChange(i, url)}
+                />
               ))}
             </div>
 
@@ -205,18 +238,6 @@ const s = {
     color: '#fff',
   },
   photoGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 },
-  photoSlot: {
-    height: 72,
-    background: 'var(--bg-surface)',
-    border: '1.5px dashed var(--border)',
-    borderRadius: 6,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    cursor: 'pointer',
-  },
   errorMsg: {
     background: '#FEE2E2',
     color: '#DC2626',
