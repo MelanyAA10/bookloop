@@ -24,17 +24,20 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
   }, [searchTerm, activeGenre]);
 
   const fetchBooks = async () => {
-    setLoading(true);
-    try {
-      const response = await apiFetch('/books');
-      const data = await response.json();
-      setBooks(data.data || []);
-    } catch (error) {
-      console.error('Error fetching books:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      setLoading(true);
+      try {
+        const response = await apiFetch('/books');
+        const result = await response.json();
+        // Si el API trae la propiedad .data usamos esa, si no, asumimos que es un array
+        const booksList = Array.isArray(result) ? result : (result.data || []);
+        setBooks(booksList);
+      } catch (error) {
+        console.error('Error fetching books:', error);
+        setBooks([]); // Evita que la app rompa si hay error
+      } finally {
+        setLoading(false);
+      }
+    };
 
   const filteredBooks = books.filter(book => {
     const matchesGenre = activeGenre === 'All' || book.genre === activeGenre;
