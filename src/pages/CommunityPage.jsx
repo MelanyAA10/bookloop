@@ -4,10 +4,7 @@ import Navbar from '../components/Navbar';
 import { Avatar, Tag, BookCover, Card, SectionLabel, Button } from '../components/UI';
 import { apiFetch } from '../config/api';
 
-const FILTERS = ['All', 'Reviews', 'Recommendations', 'Authors', 'Community'];
-
 export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTheme }) {
-  const [filter, setFilter] = useState('All');
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNewPost, setShowNewPost] = useState(false);
@@ -51,8 +48,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     setShowNewPost(false);
   };
 
-  const visible = posts.filter(p => filter === 'All' || p.tag === filter);
-
   const stats = [
     { number: '2 400+', label: 'Books' }, { number: '180+', label: 'Readers' },
     { number: '98%', label: 'Returns' }, { number: '4.7★', label: 'Avg rating' }
@@ -83,12 +78,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </Button>
             </div>
 
-            <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
-              {FILTERS.map(f => (
-                <Tag key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Tag>
-              ))}
-            </div>
-
             {showNewPost && (
               <div style={s.modalOverlay}>
                 <div style={s.modal}>
@@ -96,8 +85,10 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                   <input style={s.modalInput} placeholder="Title" value={newPost.title} onChange={(e) => setNewPost({ ...newPost, title: e.target.value })} />
                   <textarea style={s.modalTextarea} placeholder="What's on your mind?" value={newPost.body} onChange={(e) => setNewPost({ ...newPost, body: e.target.value })} />
                   <select style={s.modalSelect} value={newPost.tag} onChange={(e) => setNewPost({ ...newPost, tag: e.target.value })}>
-                    <option value="Reviews">Reviews</option><option value="Recommendations">Recommendations</option>
-                    <option value="Community">Community</option><option value="Authors">Authors</option>
+                    <option value="Reviews">Reviews</option>
+                    <option value="Recommendations">Recommendations</option>
+                    <option value="Community">Community</option>
+                    <option value="Authors">Authors</option>
                   </select>
                   <div style={s.modalActions}>
                     <button style={s.modalCancel} onClick={() => setShowNewPost(false)}>Cancel</button>
@@ -109,7 +100,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
 
             {loading && <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>Cargando posts...</div>}
 
-            {!loading && visible.map(post => (
+            {!loading && posts.map(post => (
               <div key={post.title} style={s.postCard}>
                 <div style={s.postHeader}>
                   <Avatar initials={post.initials} size={36} />
