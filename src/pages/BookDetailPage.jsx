@@ -1,4 +1,4 @@
-// src/pages/BookDetailPage.jsx
+// src/pages/BookDetailPage.jsx - Responsive version
 import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Badge, Tag, Avatar, Stars, BookCover, SectionLabel, Divider, Button } from '../components/UI';
@@ -7,10 +7,18 @@ import { apiFetch, getBookImageUrl } from '../config/api';
 export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, theme, onToggleTheme }) {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  
   const reviews = [
     { initials: 'AS', name: 'Aaron S.', stars: 5, text: 'Juliet is incredibly punctual and the books are always in pristine condition.' },
     { initials: 'MR', name: 'Marcus R.', stars: 4, text: 'Great conversation about art history during the handoff.' },
   ];
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const id = typeof bookId === 'object' ? bookId?.id || 1 : bookId || 1;
@@ -65,15 +73,15 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
       <div style={s.body}>
         <button style={s.back} onClick={() => onNavigate('discovery')}>← Back to Discovery</button>
 
-        <div style={s.layout}>
+        <div style={isMobile ? s.layoutMobile : s.layout}>
           <div style={s.left}>
             <BookCover
               color={book.color || '#7A3728'}
               title={book.title}
               imageUrl={getBookImageUrl(book)}
-              width={240}
-              height={320}
-              style={{ borderRadius: 10, boxShadow: '6px 8px 28px rgba(0,0,0,0.22)', width: 240, height: 320 }}
+              width={isMobile ? 140 : 240}
+              height={isMobile ? 186 : 320}
+              style={{ borderRadius: 10, boxShadow: '6px 8px 28px rgba(0,0,0,0.22)', width: isMobile ? 140 : 240, height: isMobile ? 186 : 320 }}
             />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
               <Badge variant="default">Available for Loan</Badge>
@@ -134,7 +142,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
 }
 
 const s = {
-  body: { padding: '28px 32px', maxWidth: 960, margin: '0 auto' },
+  body: { padding: '20px 16px', maxWidth: 960, margin: '0 auto' },
   back: {
     background: 'none',
     border: 'none',
@@ -142,23 +150,32 @@ const s = {
     color: 'var(--text-muted)',
     cursor: 'pointer',
     fontFamily: "'DM Sans', sans-serif",
-    marginBottom: 24,
+    marginBottom: 20,
     padding: 0,
   },
   layout: {
     display: 'grid',
     gridTemplateColumns: '240px 1fr',
-    gap: 36,
+    gap: 28,
     background: 'var(--bg-secondary)',
     border: '1px solid var(--border-light)',
     borderRadius: 14,
-    padding: 28,
+    padding: 20,
   },
-  left: { display: 'flex', flexDirection: 'column' },
+  layoutMobile: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 20,
+    background: 'var(--bg-secondary)',
+    border: '1px solid var(--border-light)',
+    borderRadius: 14,
+    padding: 16,
+  },
+  left: { display: 'flex', flexDirection: 'column', alignItems: 'center' },
   right: { display: 'flex', flexDirection: 'column' },
   title: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: 28,
+    fontSize: 'clamp(20px, 6vw, 28px)',
     fontWeight: 600,
     color: 'var(--text-primary)',
     marginBottom: 6,
@@ -173,6 +190,7 @@ const s = {
     borderRadius: 8,
     padding: '10px 14px',
     marginBottom: 20,
+    flexWrap: 'wrap',
   },
   synopsis: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 },
   reviews: { display: 'flex', flexDirection: 'column', gap: 0 },

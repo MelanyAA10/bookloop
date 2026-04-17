@@ -1,16 +1,18 @@
-// src/pages/SignupPage.jsx
-import React, { useState } from 'react';
+// src/pages/SignupPage.jsx - Responsive version
+import React, { useState, useEffect } from 'react';
 import Logo from '../components/Logo';
 import { Button, Input } from '../components/UI';
 
-/**
- * Sign up page
- * Props:
- *   onSignup – fn() called on submit
- *   onLogin  – fn() to navigate back to login
- */
 export default function SignupPage({ onSignup = () => {}, onLogin = () => {} }) {
   const [form, setForm] = useState({ name: '', email: '', university: '', password: '', confirm: '' });
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
   const handleSubmit = (e) => { e.preventDefault(); onSignup(); };
@@ -30,12 +32,12 @@ export default function SignupPage({ onSignup = () => {}, onLogin = () => {} }) 
           <p style={s.subtitle}>Start sharing books with fellow students</p>
 
           <form onSubmit={handleSubmit} style={s.form}>
-            <div style={s.row}>
+            <div style={isMobile ? s.rowMobile : s.row}>
               <Input label="Full Name" placeholder="Juliet Ramos" value={form.name} onChange={set('name')} style={{ flex: 1 }} />
               <Input label="University" placeholder="TEC San Carlos" value={form.university} onChange={set('university')} style={{ flex: 1 }} />
             </div>
             <Input label="University Email" type="email" placeholder="you@tec.ac.cr" value={form.email} onChange={set('email')} />
-            <div style={s.row}>
+            <div style={isMobile ? s.rowMobile : s.row}>
               <Input label="Password" type="password" placeholder="Min. 8 characters" value={form.password} onChange={set('password')} style={{ flex: 1 }} />
               <Input label="Confirm Password" type="password" placeholder="Repeat password" value={form.confirm} onChange={set('confirm')} style={{ flex: 1 }} />
             </div>
@@ -67,7 +69,7 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: '20px 16px',
     position: 'relative',
     overflow: 'hidden',
   },
@@ -89,7 +91,7 @@ const s = {
   },
   header: {
     background: 'linear-gradient(135deg, #5A0E0E, #8B1C1C)',
-    padding: '28px 36px',
+    padding: '24px 20px',
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
@@ -99,17 +101,18 @@ const s = {
     color: 'rgba(255,255,255,0.65)',
     fontFamily: "'DM Sans', sans-serif",
   },
-  body: { padding: '32px 36px' },
+  body: { padding: '24px 20px' },
   title: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: 22,
+    fontSize: 'clamp(20px, 5vw, 22px)',
     fontWeight: 600,
     color: '#1A1009',
     marginBottom: 4,
   },
-  subtitle: { fontSize: 13, color: '#9E8B75', marginBottom: 24 },
+  subtitle: { fontSize: 13, color: '#9E8B75', marginBottom: 20 },
   form: { display: 'flex', flexDirection: 'column', gap: 14 },
   row: { display: 'flex', gap: 12 },
+  rowMobile: { display: 'flex', flexDirection: 'column', gap: 12 },
   terms: {
     display: 'flex',
     alignItems: 'flex-start',

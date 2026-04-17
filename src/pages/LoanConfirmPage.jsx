@@ -1,10 +1,18 @@
-// src/pages/LoanConfirmPage.jsx
-import React, { useState } from 'react';
+// src/pages/LoanConfirmPage.jsx - Responsive version
+import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Button, BookCover, Divider } from '../components/UI';
 
 export default function LoanConfirmPage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [checks, setChecks] = useState({ damage: false, edition: false, agree: false });
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const toggle = k => setChecks(c => ({ ...c, [k]: !c[k] }));
   const allChecked = Object.values(checks).every(Boolean);
 
@@ -29,7 +37,7 @@ export default function LoanConfirmPage({ onNavigate = () => {}, theme, onToggle
 
           <div style={s.modalBody}>
             <div style={s.bookRow}>
-              <BookCover color="#7A3728" title="La Casa de los Espíritus" width={70} height={96} />
+              <BookCover color="#7A3728" title="La Casa de los Espíritus" width={isMobile ? 56 : 70} height={isMobile ? 77 : 96} />
               <div>
                 <p style={s.bookTitle}>La Casa de los Espíritus</p>
                 <p style={s.bookMeta}>Isabel Allende · 450 pages</p>
@@ -40,7 +48,7 @@ export default function LoanConfirmPage({ onNavigate = () => {}, theme, onToggle
             <Divider />
 
             <p style={s.sectionLabel}>Condition Documentation</p>
-            <div style={s.photoGrid}>
+            <div style={isMobile ? s.photoGridMobile : s.photoGrid}>
               {['Front Cover', 'Back Cover', 'Spine', 'Interior'].map(label => (
                 <div key={label} style={s.photoSlot}>
                   <span style={s.photoPlus}>+</span>
@@ -83,23 +91,24 @@ export default function LoanConfirmPage({ onNavigate = () => {}, theme, onToggle
 }
 
 const s = {
-  overlay: { background: 'rgba(26,16,9,0.5)', padding: '48px 24px', minHeight: 'calc(100vh - 56px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center' },
+  overlay: { background: 'rgba(26,16,9,0.5)', padding: '20px 16px', minHeight: 'calc(100vh - 56px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center' },
   modal: { background: 'var(--bg-secondary)', borderRadius: 14, overflow: 'hidden', width: '100%', maxWidth: 580, boxShadow: '0 24px 60px rgba(0,0,0,0.35)' },
-  modalHeader: { background: 'linear-gradient(135deg, var(--crimson-dark), var(--crimson))', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
-  modalTitle: { fontFamily: "'Playfair Display', serif", fontSize: 18, color: '#fff', marginBottom: 4, fontWeight: 600 },
+  modalHeader: { background: 'linear-gradient(135deg, var(--crimson-dark), var(--crimson))', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
+  modalTitle: { fontFamily: "'Playfair Display', serif", fontSize: 'clamp(16px, 5vw, 18px)', color: '#fff', marginBottom: 4, fontWeight: 600 },
   modalSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)' },
   closeBtn: { background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: 28, height: 28, borderRadius: '50%', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif", flexShrink: 0 },
-  modalBody: { padding: '24px' },
+  modalBody: { padding: '16px' },
   bookRow: { display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 4 },
-  bookTitle: { fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 },
+  bookTitle: { fontFamily: "'Playfair Display', serif", fontSize: 'clamp(14px, 4vw, 15px)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 },
   bookMeta: { fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 },
   sectionLabel: { fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 12 },
   photoGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 4 },
+  photoGridMobile: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 },
   photoSlot: { height: 90, background: 'var(--bg-surface)', border: '1.5px dashed var(--border)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' },
   photoPlus: { fontSize: 20, color: 'var(--text-muted)' },
   photoLabel: { fontSize: 10, color: 'var(--text-muted)' },
   checkRow: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10, cursor: 'pointer' },
   checkbox: { width: 18, height: 18, border: '1.5px solid var(--border)', borderRadius: 4, flexShrink: 0, marginTop: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.18s' },
   checkboxDone: { background: 'var(--crimson)', borderColor: 'var(--crimson)' },
-  loanMeta: { display: 'flex', justifyContent: 'space-between', marginBottom: 12 },
+  loanMeta: { display: 'flex', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 },
 };

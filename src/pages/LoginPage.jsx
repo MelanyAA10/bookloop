@@ -1,5 +1,6 @@
+// src/pages/LoginPage.jsx - Responsive version (partial - fix positions)
 // src/pages/LoginPage.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Logo from '../components/Logo';
 import { Button, Input } from '../components/UI';
 import illustration from '../assets/bookloop-illustration.png';
@@ -14,6 +15,13 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <div style={s.root}>
@@ -21,9 +29,9 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
       <div style={{ ...s.bgIllustration, backgroundImage: `url(${illustration})` }} />
 
       {/* Panel login */}
-      <div style={s.panel}>
+      <div style={isMobile ? s.panelMobile : s.panel}>
         <div style={s.brand}>
-          <Logo size={38} variant="light" />
+          <Logo size={isMobile ? 32 : 38} variant="light" />
 
           <div style={s.tagline}>
             <p style={s.taglineText}>
@@ -33,13 +41,15 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
             </p>
           </div>
 
-          <div style={s.quoteBox}>
-            <span style={s.quoteMark}>"</span>
-            <p style={s.quoteText}>
-              All grown-ups were once children… but only few of them remember it
-            </p>
-            <p style={s.quoteAuthor}>— Antoine de Saint-Exupéry</p>
-          </div>
+          {!isMobile && (
+            <div style={s.quoteBox}>
+              <span style={s.quoteMark}>"</span>
+              <p style={s.quoteText}>
+                All grown-ups were once children… but only few of them remember it
+              </p>
+              <p style={s.quoteAuthor}>— Antoine de Saint-Exupéry</p>
+            </div>
+          )}
         </div>
 
         <div style={s.formSide}>
@@ -90,23 +100,17 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
         </div>
       </div>
 
-      {/* ✈️ Avión */}
-      <img src={avion} alt="avion" style={s.avion} />
-
-      {/* 🐦 Pájaros */}
-      <img src={pajaros} alt="pajaros" style={s.pajaros} />
-
-      {/* 🌍 Planeta */}
-      <img src={planeta} alt="planeta" style={s.planeta} />
-
-      {/* 🌳 Árbol */}
-      <img src={arbol} alt="arbol" style={s.arbol} />
-
-      {/* 👦 Principito */}
-      <img src={principito} alt="principito" style={s.principito} />
-
-      {/* 🦊 Zorrito */}
-      <img src={zorrito} alt="zorrito" style={s.zorrito} />
+      {/* Floating elements - hide on mobile */}
+      {!isMobile && (
+        <>
+          <img src={avion} alt="avion" style={s.avion} />
+          <img src={pajaros} alt="pajaros" style={s.pajaros} />
+          <img src={planeta} alt="planeta" style={s.planeta} />
+          <img src={arbol} alt="arbol" style={s.arbol} />
+          <img src={principito} alt="principito" style={s.principito} />
+          <img src={zorrito} alt="zorrito" style={s.zorrito} />
+        </>
+      )}
     </div>
   );
 }
@@ -118,7 +122,7 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '80px 24px',
+    padding: '40px 16px',
     position: 'relative',
     overflow: 'hidden',
   },
@@ -145,20 +149,33 @@ const s = {
     zIndex: 1,
   },
 
-  brand: {
-    background: 'linear-gradient(155deg, #3A0808, #8B1C1C)',
-    padding: '48px 44px',
-    flex: '0 0 340px',
+  panelMobile: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 36,
+    background: '#FFFFFF',
+    borderRadius: 20,
+    overflow: 'hidden',
+    boxShadow: '0 32px 100px rgba(26,16,9,0.22)',
+    width: '100%',
+    maxWidth: 400,
+    position: 'relative',
+    zIndex: 1,
+  },
+
+  brand: {
+    background: 'linear-gradient(155deg, #3A0808, #8B1C1C)',
+    padding: '32px 28px',
+    flex: '0 0 300px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 28,
   },
 
   tagline: { flex: 1 },
 
   taglineText: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: 24,
+    fontSize: 'clamp(20px, 5vw, 24px)',
     color: 'rgba(255,255,255,0.9)',
   },
 
@@ -186,9 +203,8 @@ const s = {
     color: 'rgba(255,255,255,0.4)',
   },
 
-  // FIX: color hardcodeado para que nunca herede el tema oscuro del body
   formSide: {
-    padding: '48px 44px',
+    padding: '32px 28px',
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
@@ -196,8 +212,7 @@ const s = {
     background: '#FFFFFF',
   },
 
-  // FIX: color explícito en el heading — antes no tenía color definido
-  heading: { fontSize: 28, fontWeight: 700, color: '#1A1009' },
+  heading: { fontSize: 'clamp(24px, 6vw, 28px)', fontWeight: 700, color: '#1A1009' },
 
   subheading: {
     fontSize: 14,
@@ -236,17 +251,7 @@ const s = {
     background: 'transparent',
   },
 
-
-  arbol: {
-    position: 'absolute',
-    top: '80%',
-    left: '82%',
-    width: 600,
-    transform: 'translate(-50%, -50%)',
-    zIndex: 2,
-  },
-
-  
+  // Hide decorative elements on mobile
   avion: {
     position: 'absolute',
     top: '65%',
@@ -258,7 +263,6 @@ const s = {
     pointerEvents: 'none',
   },
 
- 
   pajaros: {
     position: 'absolute',
     top: '-14%',
@@ -269,7 +273,6 @@ const s = {
     pointerEvents: 'none',
   },
 
-
   planeta: {
     position: 'absolute',
     top: '55%',
@@ -279,7 +282,6 @@ const s = {
     zIndex: 1,
   },
 
-   
   principito: {
     position: 'absolute',
     top: '78.3%',
@@ -291,7 +293,6 @@ const s = {
     filter: 'drop-shadow(0 25px 50px rgba(0,0,0,0.35))',
   },
 
-  
   zorrito: {
     position: 'absolute',
     top: '50%',
@@ -301,5 +302,14 @@ const s = {
     zIndex: 2,
     pointerEvents: 'none',
     filter: 'drop-shadow(0 15px 30px rgba(0,0,0,0.25))',
+  },
+
+  arbol: {
+    position: 'absolute',
+    top: '80%',
+    left: '82%',
+    width: 600,
+    transform: 'translate(-50%, -50%)',
+    zIndex: 2,
   },
 };

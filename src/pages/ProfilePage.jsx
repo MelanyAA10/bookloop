@@ -1,4 +1,4 @@
-// src/pages/ProfilePage.jsx
+// src/pages/ProfilePage.jsx - Responsive version
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Badge, Stars, BookCover, Card, SectionLabel, Button } from '../components/UI';
@@ -17,10 +17,17 @@ const USER = {
 export default function ProfilePage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [userBooks, setUserBooks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [reviews] = useState([
     { initials: 'KR', name: 'Kevin Reyes', stars: 5, text: 'Elena is an incredible lender. The book was in perfect condition and she even included helpful bookmarks. Highly recommended!' },
     { initials: 'W', name: 'Wilmar', stars: 5, text: 'Great communication throughout the whole loan period. Very flexible with the return date during finals week — a lifesaver!' },
   ]);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchBooks();
@@ -60,7 +67,7 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
       <div style={s.body}>
         <div style={s.banner} />
 
-        <div style={s.layout}>
+        <div style={isMobile ? s.layoutMobile : s.layout}>
           <div style={s.left}>
             <Card style={{ textAlign: 'center', marginBottom: 16 }}>
               <div style={s.avatar}>
@@ -128,11 +135,11 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
 }
 
 const s = {
-  body: { maxWidth: 960, margin: '0 auto', padding: '0 32px 40px' },
+  body: { maxWidth: 960, margin: '0 auto', padding: '0 16px 40px' },
   banner: {
-    height: 140,
+    height: 'clamp(100px, 20vw, 140px)',
     background: 'linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 50%, var(--crimson-light) 100%)',
-    margin: '0 -32px 0',
+    margin: '0 -16px 0',
     borderRadius: '0 0 0 0',
   },
   layout: {
@@ -141,11 +148,17 @@ const s = {
     gap: 28,
     marginTop: -40,
   },
+  layoutMobile: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 20,
+    marginTop: -40,
+  },
   left: {},
   right: { paddingTop: 50 },
   avatar: {
-    width: 90,
-    height: 90,
+    width: 'clamp(70px, 15vw, 90px)',
+    height: 'clamp(70px, 15vw, 90px)',
     borderRadius: '50%',
     background: 'linear-gradient(135deg, var(--crimson-light), var(--crimson))',
     margin: '0 auto 12px',
@@ -157,7 +170,7 @@ const s = {
   },
   userName: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: 19,
+    fontSize: 'clamp(17px, 5vw, 19px)',
     fontWeight: 600,
     color: 'var(--text-primary)',
     marginBottom: 2,
@@ -165,12 +178,12 @@ const s = {
   userMeta: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 16 },
   statsRow: { display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 16 },
   stat: { textAlign: 'center' },
-  statNum: { display: 'block', fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 600, color: 'var(--text-primary)' },
+  statNum: { display: 'block', fontFamily: "'Playfair Display', serif", fontSize: 'clamp(18px, 4vw, 22px)', fontWeight: 600, color: 'var(--text-primary)' },
   statLabel: { display: 'block', fontSize: 10, color: 'var(--text-muted)', marginTop: 2 },
   bookRow: { display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 12, cursor: 'pointer' },
   sectionTitle: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: 18,
+    fontSize: 'clamp(16px, 4vw, 18px)',
     fontWeight: 600,
     color: 'var(--text-primary)',
     marginBottom: 16,

@@ -1,5 +1,6 @@
+// src/pages/AddBookPage.jsx - Responsive version
 // src/pages/AddBookPage.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Button, Input, Textarea, Divider, ImageUploadMock } from '../components/UI';
 import { apiFetch } from '../config/api';
@@ -17,6 +18,13 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
   const [coverImgError, setCoverImgError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -96,7 +104,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
           <form onSubmit={handleSubmit} style={s.body}>
             {error && <div style={s.errorMsg}>{error}</div>}
 
-            <div style={s.layout}>
+            <div style={isMobile ? s.layoutMobile : s.layout}>
               <div style={s.coverZone}>
                 <div style={{ ...s.coverUpload, padding: showCoverImage ? 0 : undefined, overflow: 'hidden' }}>
                   {showCoverImage ? (
@@ -118,11 +126,11 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
               <div style={s.fields}>
                 <Input label="Book Title" placeholder="e.g. Cien Años de Soledad" value={form.title} onChange={set('title')} required />
                 <Input label="Author" placeholder="e.g. Gabriel García Márquez" value={form.author} onChange={set('author')} required />
-                <div style={{ display: 'flex', gap: 10 }}>
+                <div style={isMobile ? s.rowMobile : s.row}>
                   <Input label="Genre" placeholder="Fiction" value={form.genre} onChange={set('genre')} style={{ flex: 1 }} />
                   <Input label="Language" placeholder="Spanish" value={form.language} onChange={set('language')} style={{ flex: 1 }} />
                 </div>
-                <div style={{ display: 'flex', gap: 10 }}>
+                <div style={isMobile ? s.rowMobile : s.row}>
                   <Input label="Year" placeholder="2024" type="number" value={form.year} onChange={set('year')} style={{ flex: 1 }} />
                   <Input label="Pages" placeholder="200" type="number" value={form.pages} onChange={set('pages')} style={{ flex: 1 }} />
                 </div>
@@ -134,7 +142,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
             <Divider />
 
             <p style={s.sectionLabel}>Book Condition</p>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
               {CONDITIONS.map(c => (
                 <button key={c} type="button" style={{ ...s.condBtn, ...(condition === c ? s.condBtnActive : {}) }} onClick={() => setCondition(c)}>
                   {c}
@@ -143,7 +151,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
             </div>
 
             <p style={s.sectionLabel}>Condition Photos</p>
-            <div style={s.photoGrid}>
+            <div style={isMobile ? s.photoGridMobile : s.photoGrid}>
               {PHOTO_LABELS.map((label, i) => (
                 <ImageUploadMock
                   key={label}
@@ -156,7 +164,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
 
             <Divider />
 
-            <Input label="Loan Period (days)" type="number" placeholder="14" value={form.loanDays} onChange={set('loanDays')} style={{ maxWidth: 200, marginBottom: 20 }} />
+            <Input label="Loan Period (days)" type="number" placeholder="14" value={form.loanDays} onChange={set('loanDays')} style={{ maxWidth: '100%', marginBottom: 20 }} />
 
             <Button variant="full" type="submit" disabled={loading}>
               {loading ? 'Creating...' : 'List My Book →'}
@@ -171,7 +179,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
 const s = {
   overlay: {
     background: 'rgba(26,16,9,0.45)',
-    padding: '40px 24px',
+    padding: '20px 16px',
     minHeight: 'calc(100vh - 56px)',
     display: 'flex',
     alignItems: 'flex-start',
@@ -187,12 +195,12 @@ const s = {
   },
   header: {
     background: 'linear-gradient(135deg, var(--crimson-dark), var(--crimson))',
-    padding: '20px 24px',
+    padding: '16px 20px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  title: { fontFamily: "'Playfair Display', serif", fontSize: 18, color: '#fff', fontWeight: 600, marginBottom: 4 },
+  title: { fontFamily: "'Playfair Display', serif", fontSize: 'clamp(16px, 5vw, 18px)', color: '#fff', fontWeight: 600, marginBottom: 4 },
   sub: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   closeBtn: {
     background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff',
@@ -200,8 +208,9 @@ const s = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontFamily: "'DM Sans', sans-serif", flexShrink: 0,
   },
-  body: { padding: 24, display: 'flex', flexDirection: 'column', gap: 14 },
+  body: { padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 },
   layout: { display: 'grid', gridTemplateColumns: '140px 1fr', gap: 20, marginBottom: 4 },
+  layoutMobile: { display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 4 },
   coverZone: { display: 'flex', flexDirection: 'column' },
   coverUpload: {
     height: 185,
@@ -215,6 +224,8 @@ const s = {
     cursor: 'pointer',
   },
   fields: { display: 'flex', flexDirection: 'column', gap: 12 },
+  row: { display: 'flex', gap: 10 },
+  rowMobile: { display: 'flex', flexDirection: 'column', gap: 10 },
   sectionLabel: {
     fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
     textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8,
@@ -238,6 +249,7 @@ const s = {
     color: '#fff',
   },
   photoGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 },
+  photoGridMobile: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 },
   errorMsg: {
     background: '#FEE2E2',
     color: '#DC2626',

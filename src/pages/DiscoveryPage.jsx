@@ -1,4 +1,4 @@
-// src/pages/DiscoveryPage.jsx
+// src/pages/DiscoveryPage.jsx - Responsive version
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Tag, Badge, Avatar, Stars, BookCover, SectionLabel } from '../components/UI';
@@ -12,32 +12,37 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const booksPerPage = 8;
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const booksPerPage = isMobile ? 6 : 8;
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchBooks();
   }, []);
 
-  // Reset to page 1 whenever the user changes the search or genre filter
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, activeGenre]);
 
   const fetchBooks = async () => {
-      setLoading(true);
-      try {
-        const response = await apiFetch('/books');
-        const result = await response.json();
-        // Si el API trae la propiedad .data usamos esa, si no, asumimos que es un array
-        const booksList = Array.isArray(result) ? result : (result.data || []);
-        setBooks(booksList);
-      } catch (error) {
-        console.error('Error fetching books:', error);
-        setBooks([]); // Evita que la app rompa si hay error
-      } finally {
-        setLoading(false);
-      }
-    };
+    setLoading(true);
+    try {
+      const response = await apiFetch('/books');
+      const result = await response.json();
+      const booksList = Array.isArray(result) ? result : (result.data || []);
+      setBooks(booksList);
+    } catch (error) {
+      console.error('Error fetching books:', error);
+      setBooks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredBooks = books.filter(book => {
     const matchesGenre = activeGenre === 'All' || book.genre === activeGenre;
@@ -66,7 +71,7 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
     synopsis: 'Una obra maestra del realismo mágico latinoamericano.'
   };
 
-  const alsoAvailable = books.slice(1, 3);
+  const alsoAvailable = books.slice(1, isMobile ? 2 : 3);
 
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
@@ -81,15 +86,16 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
         <div style={s.searchRow}>
           <input
             style={s.searchInput}
-            placeholder="Search by title, author, or ISBN…"
+            placeholder="Search by title, author..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <div style={s.genreTags}>
-            {GENRES.map(g => (
-              <Tag key={g} active={activeGenre === g} onClick={() => setActiveGenre(g)}>{g}</Tag>
-            ))}
-          </div>
+        </div>
+        
+        <div style={s.genreTags}>
+          {GENRES.map(g => (
+            <Tag key={g} active={activeGenre === g} onClick={() => setActiveGenre(g)}>{g}</Tag>
+          ))}
         </div>
 
         {loading && (
@@ -100,13 +106,13 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
 
         {!loading && (
           <>
-            <div style={s.featured}>
+            <div style={isMobile ? s.featuredMobile : s.featured}>
               <BookCover
                 color={featuredBook.color}
                 title={featuredBook.title}
                 imageUrl={getBookImageUrl(featuredBook)}
-                width={200}
-                height={280}
+                width={isMobile ? 120 : 200}
+                height={isMobile ? 168 : 280}
                 style={{ borderRadius: 10, boxShadow: '4px 6px 24px rgba(0,0,0,0.25)' }}
               />
 
@@ -124,34 +130,40 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
                   <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{featuredBook.owner?.name || 'Unknown'}</span>
                   <Stars value={featuredBook.owner?.rating || 0} size={12} />
                 </div>
-                <SectionLabel style={{ marginTop: 14 }}>The Story</SectionLabel>
-                <p style={s.synopsis}>{featuredBook.synopsis || 'No synopsis available.'}</p>
+                {!isMobile && (
+                  <>
+                    <SectionLabel style={{ marginTop: 14 }}>The Story</SectionLabel>
+                    <p style={s.synopsis}>{featuredBook.synopsis || 'No synopsis available.'}</p>
+                  </>
+                )}
                 <div style={s.featuredActions}>
                   <button style={s.btnOutline} onClick={() => onNavigate('bookdetail', { id: featuredBook.id })}>Book Info</button>
                   <button style={s.btnPrimary} onClick={() => onNavigate('bookdetail', { id: featuredBook.id })}>Request Loan →</button>
                 </div>
               </div>
 
-              <div style={s.sidebar}>
-                <SectionLabel>Also Available</SectionLabel>
-                {alsoAvailable.map(book => (
-                  <div key={book.id} onClick={() => onNavigate('bookdetail', { id: book.id })} style={{ cursor: 'pointer' }}>
-                    <BookCover
-                      color={book.color}
-                      title={book.title}
-                      imageUrl={getBookImageUrl(book)}
-                      width="100%"
-                      height={148}
-                      style={{ borderRadius: 8, marginBottom: 10, width: '100%' }}
-                    />
-                  </div>
-                ))}
-              </div>
+              {!isMobile && (
+                <div style={s.sidebar}>
+                  <SectionLabel>Also Available</SectionLabel>
+                  {alsoAvailable.map(book => (
+                    <div key={book.id} onClick={() => onNavigate('bookdetail', { id: book.id })} style={{ cursor: 'pointer' }}>
+                      <BookCover
+                        color={book.color}
+                        title={book.title}
+                        imageUrl={getBookImageUrl(book)}
+                        width="100%"
+                        height={148}
+                        style={{ borderRadius: 8, marginBottom: 10, width: '100%' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div style={{ marginTop: 36 }}>
               <SectionLabel style={{ marginBottom: 16, fontSize: 12 }}>Recent Additions</SectionLabel>
-              <div style={s.grid}>
+              <div style={isMobile ? s.gridMobile : s.grid}>
                 {paginatedBooks.map(book => (
                   <div key={book.id} style={s.gridItem} onClick={() => onNavigate('bookdetail', { id: book.id })}>
                     <BookCover
@@ -159,7 +171,7 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
                       title={book.title}
                       imageUrl={getBookImageUrl(book)}
                       width="100%"
-                      height={130}
+                      height={isMobile ? 100 : 130}
                       style={{ borderRadius: 8, cursor: 'pointer', width: '100%' }}
                     />
                     <p style={s.gridTitle}>{book.title}</p>
@@ -196,8 +208,8 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
 }
 
 const s = {
-  body: { padding: '28px 32px', maxWidth: 1280, margin: '0 auto' },
-  searchRow: { display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28, flexWrap: 'wrap' },
+  body: { padding: '20px 16px', maxWidth: 1280, margin: '0 auto' },
+  searchRow: { marginBottom: 16 },
   searchInput: {
     padding: '10px 16px',
     border: '1.5px solid var(--border)',
@@ -206,10 +218,10 @@ const s = {
     fontFamily: "'DM Sans', sans-serif",
     background: 'var(--bg-secondary)',
     color: 'var(--text-primary)',
-    minWidth: 260,
+    width: '100%',
     outline: 'none',
   },
-  genreTags: { display: 'flex', gap: 6, flexWrap: 'wrap' },
+  genreTags: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 },
   featured: {
     display: 'grid',
     gridTemplateColumns: '200px 1fr 200px',
@@ -220,10 +232,20 @@ const s = {
     padding: 28,
     boxShadow: 'var(--shadow)',
   },
+  featuredMobile: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+    background: 'var(--bg-secondary)',
+    border: '1px solid var(--border-light)',
+    borderRadius: 14,
+    padding: 16,
+    boxShadow: 'var(--shadow)',
+  },
   featuredInfo: { display: 'flex', flexDirection: 'column' },
   featuredTitle: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: 24,
+    fontSize: 'clamp(18px, 5vw, 24px)',
     fontWeight: 600,
     color: 'var(--text-primary)',
     marginBottom: 4,
@@ -232,7 +254,7 @@ const s = {
   featuredMeta: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 },
   ownerRow: { display: 'flex', alignItems: 'center', gap: 8 },
   synopsis: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 20 },
-  featuredActions: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 'auto' },
+  featuredActions: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 },
   btnOutline: {
     background: 'transparent',
     border: '1.5px solid var(--crimson)',
@@ -262,6 +284,11 @@ const s = {
     gridTemplateColumns: 'repeat(4, 1fr)',
     gap: 14,
   },
+  gridMobile: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: 12,
+  },
   gridItem: { cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6 },
   gridTitle: { fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.3 },
   gridAuthor: { fontSize: 11, color: 'var(--text-muted)' },
@@ -269,9 +296,10 @@ const s = {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
     marginTop: 24,
     padding: '16px 0',
+    flexWrap: 'wrap',
   },
   pageBtn: {
     background: 'var(--crimson)',

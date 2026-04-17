@@ -1,5 +1,5 @@
-// src/components/Navbar.jsx
-import React from 'react';
+// src/components/Navbar.jsx - Versión responsive
+import React, { useState, useEffect } from 'react';
 import Logo from './Logo';
 
 export default function Navbar({
@@ -10,35 +10,78 @@ export default function Navbar({
   onToggleTheme = () => {},
 }) {
   const isDark = theme === 'dark';
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+      if (window.innerWidth > 768) setIsMobileMenuOpen(false);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const links = [
     { id: 'discovery', label: 'Discovery' },
     { id: 'community', label: 'Community' },
-    { id: 'messages',  label: 'Messages' },
+    { id: 'messages', label: 'Messages' },
   ];
 
   return (
     <nav style={styles.nav}>
       <button style={styles.logoBtn} onClick={() => onNavigate('discovery')}>
-        <Logo size={28} variant="light" />
+        <Logo size={isMobile ? 24 : 28} variant="light" />
       </button>
 
-      <div style={styles.links}>
-        {links.map(l => (
-          <button
-            key={l.id}
-            style={{ ...styles.link, ...(activePage === l.id ? styles.linkActive : {}) }}
-            onClick={() => onNavigate(l.id)}
-          >
-            {l.label}
-            {activePage === l.id && <span style={styles.linkUnderline} />}
-          </button>
-        ))}
-      </div>
+      {/* Mobile Menu Button */}
+      {isMobile && (
+        <button
+          style={styles.menuBtn}
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          aria-label="Menu"
+        >
+          <span style={{ ...styles.menuIcon, transform: isMobileMenuOpen ? 'rotate(45deg)' : 'none' }} />
+          <span style={{ ...styles.menuIcon, opacity: isMobileMenuOpen ? 0 : 1, width: 18 }} />
+          <span style={{ ...styles.menuIcon, transform: isMobileMenuOpen ? 'rotate(-45deg)' : 'none', width: 12 }} />
+        </button>
+      )}
+
+      {/* Desktop Links */}
+      {!isMobile && (
+        <div style={styles.links}>
+          {links.map(l => (
+            <button
+              key={l.id}
+              style={{ ...styles.link, ...(activePage === l.id ? styles.linkActive : {}) }}
+              onClick={() => onNavigate(l.id)}
+            >
+              {l.label}
+              {activePage === l.id && <span style={styles.linkUnderline} />}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Mobile Menu Dropdown */}
+      {isMobile && isMobileMenuOpen && (
+        <div style={styles.mobileMenu}>
+          {links.map(l => (
+            <button
+              key={l.id}
+              style={{ ...styles.mobileLink, ...(activePage === l.id ? styles.mobileLinkActive : {}) }}
+              onClick={() => {
+                onNavigate(l.id);
+                setIsMobileMenuOpen(false);
+              }}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div style={styles.right}>
-
-        {/* Toggle switch luna/sol */}
         <button
           onClick={onToggleTheme}
           title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
@@ -48,25 +91,22 @@ export default function Navbar({
             background: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.25)',
           }}
         >
-          {/* Luna - lado izquierdo */}
           <span style={{ ...styles.trackIcon, opacity: isDark ? 0.5 : 0.35 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="1">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
             </svg>
           </span>
-
-          {/* Thumb deslizante */}
           <span style={{
             ...styles.thumb,
             transform: isDark ? 'translateX(0px)' : 'translateX(24px)',
             background: '#fff',
           }}>
             {isDark ? (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="#1A1009" stroke="#1A1009" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="#1A1009" stroke="#1A1009" strokeWidth="1">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
               </svg>
             ) : (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5A0E0E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5A0E0E" strokeWidth="2.5">
                 <circle cx="12" cy="12" r="4"/>
                 <line x1="12" y1="2" x2="12" y2="5"/>
                 <line x1="12" y1="19" x2="12" y2="22"/>
@@ -79,10 +119,8 @@ export default function Navbar({
               </svg>
             )}
           </span>
-
-          {/* Sol - lado derecho */}
           <span style={{ ...styles.trackIcon, justifyContent: 'flex-end', opacity: isDark ? 0.35 : 0.5 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
               <circle cx="12" cy="12" r="4"/>
               <line x1="12" y1="2" x2="12" y2="5"/>
               <line x1="12" y1="19" x2="12" y2="22"/>
@@ -96,9 +134,12 @@ export default function Navbar({
           </span>
         </button>
 
-        <button style={styles.addBtn} onClick={() => onNavigate('addbook')}>
-          + Add Book
-        </button>
+        {!isMobile && (
+          <button style={styles.addBtn} onClick={() => onNavigate('addbook')}>
+            + Add Book
+          </button>
+        )}
+
         <button
           style={styles.avatar}
           onClick={() => onNavigate('profile')}
@@ -114,15 +155,16 @@ export default function Navbar({
 const styles = {
   nav: {
     background: '#5A0E0E',
-    height: 56,
+    minHeight: 56,
     display: 'flex',
     alignItems: 'center',
-    padding: '0 28px',
-    gap: 16,
+    padding: '0 16px',
+    gap: 12,
     position: 'sticky',
     top: 0,
     zIndex: 100,
     boxShadow: '0 2px 12px rgba(0,0,0,0.25)',
+    flexWrap: 'wrap',
   },
   logoBtn: {
     background: 'none',
@@ -133,10 +175,58 @@ const styles = {
     alignItems: 'center',
     flexShrink: 0,
   },
+  menuBtn: {
+    background: 'rgba(255,255,255,0.15)',
+    border: 'none',
+    borderRadius: 8,
+    padding: '10px 8px',
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    alignItems: 'flex-end',
+  },
+  menuIcon: {
+    width: 20,
+    height: 2,
+    background: '#fff',
+    borderRadius: 2,
+    transition: 'all 0.2s ease',
+  },
+  mobileMenu: {
+    position: 'absolute',
+    top: 56,
+    left: 0,
+    right: 0,
+    background: '#5A0E0E',
+    padding: '12px 16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    borderTop: '1px solid rgba(255,255,255,0.1)',
+    zIndex: 99,
+  },
+  mobileLink: {
+    background: 'none',
+    border: 'none',
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 15,
+    fontFamily: "'DM Sans', sans-serif",
+    fontWeight: 500,
+    cursor: 'pointer',
+    padding: '10px 12px',
+    borderRadius: 6,
+    textAlign: 'left',
+    width: '100%',
+  },
+  mobileLinkActive: {
+    color: '#FFFFFF',
+    background: 'rgba(255,255,255,0.1)',
+  },
   links: {
     display: 'flex',
     gap: 4,
-    marginLeft: 28,
+    marginLeft: 20,
     flex: 1,
   },
   link: {
@@ -169,7 +259,8 @@ const styles = {
   right: {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    marginLeft: 'auto',
   },
   toggle: {
     position: 'relative',
@@ -231,5 +322,6 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
+    flexShrink: 0,
   },
 };

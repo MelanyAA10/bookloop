@@ -1,11 +1,19 @@
-// src/pages/LoanReturnPage.jsx
-import React, { useState } from 'react';
+// src/pages/LoanReturnPage.jsx - Responsive version
+import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Button, Divider } from '../components/UI';
 
 export default function LoanReturnPage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [checks, setChecks] = useState({ damage: false, edition: false, agree: false });
   const [rating, setRating] = useState(0);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const toggle = k => setChecks(c => ({ ...c, [k]: !c[k] }));
   const allChecked = Object.values(checks).every(Boolean);
 
@@ -33,7 +41,7 @@ export default function LoanReturnPage({ onNavigate = () => {}, theme, onToggleT
 
           <div style={s.body}>
             <p style={s.sectionLabel}>Condition Documentation</p>
-            <div style={s.photoGrid}>
+            <div style={isMobile ? s.photoGridMobile : s.photoGrid}>
               {['Front Cover', 'Back Cover', 'Spine', 'Interior'].map(label => (
                 <div key={label} style={s.photoSlot}>
                   <span style={s.photoPlus}>+</span>
@@ -61,9 +69,9 @@ export default function LoanReturnPage({ onNavigate = () => {}, theme, onToggleT
             <Divider />
 
             <p style={s.sectionLabel}>Rate the Lender</p>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
               {[1, 2, 3, 4, 5].map(i => (
-                <span key={i} style={{ fontSize: 26, cursor: 'pointer', color: i <= rating ? 'var(--crimson-light)' : 'var(--border)', transition: 'color 0.15s' }} onClick={() => setRating(i)}>★</span>
+                <span key={i} style={{ fontSize: isMobile ? 32 : 26, cursor: 'pointer', color: i <= rating ? 'var(--crimson-light)' : 'var(--border)', transition: 'color 0.15s' }} onClick={() => setRating(i)}>★</span>
               ))}
             </div>
 
@@ -78,17 +86,18 @@ export default function LoanReturnPage({ onNavigate = () => {}, theme, onToggleT
 }
 
 const s = {
-  overlay: { background: 'rgba(26,16,9,0.5)', padding: '48px 24px', minHeight: 'calc(100vh - 56px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center' },
+  overlay: { background: 'rgba(26,16,9,0.5)', padding: '20px 16px', minHeight: 'calc(100vh - 56px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center' },
   modal: { background: 'var(--bg-secondary)', borderRadius: 14, overflow: 'hidden', width: '100%', maxWidth: 560, boxShadow: '0 24px 60px rgba(0,0,0,0.35)' },
-  header: { background: 'linear-gradient(135deg, var(--crimson-dark), var(--crimson))', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
-  title: { fontFamily: "'Playfair Display', serif", fontSize: 18, color: '#fff', fontWeight: 600, marginBottom: 4 },
+  header: { background: 'linear-gradient(135deg, var(--crimson-dark), var(--crimson))', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 },
+  title: { fontFamily: "'Playfair Display', serif", fontSize: 'clamp(16px, 5vw, 18px)', color: '#fff', fontWeight: 600, marginBottom: 4 },
   sub: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
-  daysLeft: { background: 'rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 14px', textAlign: 'center' },
-  daysNum: { display: 'block', fontFamily: "'Playfair Display', serif", fontSize: 22, color: '#fff', fontWeight: 600 },
+  daysLeft: { background: 'rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 12px', textAlign: 'center' },
+  daysNum: { display: 'block', fontFamily: "'Playfair Display', serif", fontSize: 20, color: '#fff', fontWeight: 600 },
   daysLabel: { display: 'block', fontSize: 10, color: 'rgba(255,255,255,0.6)' },
-  body: { padding: 24 },
+  body: { padding: '16px' },
   sectionLabel: { fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 12 },
   photoGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 4 },
+  photoGridMobile: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 },
   photoSlot: { height: 90, background: 'var(--bg-surface)', border: '1.5px dashed var(--border)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' },
   photoPlus: { fontSize: 20, color: 'var(--text-muted)' },
   photoLabel: { fontSize: 10, color: 'var(--text-muted)' },

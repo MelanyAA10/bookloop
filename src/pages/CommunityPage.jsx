@@ -1,4 +1,4 @@
-// src/pages/CommunityPage.jsx
+// src/pages/CommunityPage.jsx - Responsive version
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Avatar, Tag, BookCover, Card, SectionLabel, Button } from '../components/UI';
@@ -12,6 +12,13 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [loading, setLoading] = useState(true);
   const [showNewPost, setShowNewPost] = useState(false);
   const [newPost, setNewPost] = useState({ title: '', body: '', tag: 'Reviews' });
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchPosts();
@@ -67,7 +74,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       />
 
       <div style={s.body}>
-        <div style={s.layout}>
+        <div style={isMobile ? s.layoutMobile : s.layout}>
           <div style={s.feed}>
             <div style={s.feedTop}>
               <h2 style={s.feedTitle}>Community</h2>
@@ -123,32 +130,34 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
             ))}
           </div>
 
-          <div style={s.sidebar}>
-            <Card style={{ marginBottom: 16 }}>
-              <SectionLabel>Community Stats</SectionLabel>
-              <div style={s.statsGrid}>
-                {stats.map(stat => (
-                  <div key={stat.label} style={s.statItem}>
-                    <span style={s.statNum}>{stat.number}</span>
-                    <span style={s.statLabel}>{stat.label}</span>
+          {!isMobile && (
+            <div style={s.sidebar}>
+              <Card style={{ marginBottom: 16 }}>
+                <SectionLabel>Community Stats</SectionLabel>
+                <div style={s.statsGrid}>
+                  {stats.map(stat => (
+                    <div key={stat.label} style={s.statItem}>
+                      <span style={s.statNum}>{stat.number}</span>
+                      <span style={s.statLabel}>{stat.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card>
+                <SectionLabel>Trending Books</SectionLabel>
+                {trending.map(book => (
+                  <div key={book.title} style={s.trendItem}>
+                    <BookCover color={book.color} title={book.title} width={40} height={56} />
+                    <div>
+                      <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-primary)' }}>{book.title}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{book.author}</p>
+                    </div>
                   </div>
                 ))}
-              </div>
-            </Card>
-
-            <Card>
-              <SectionLabel>Trending Books</SectionLabel>
-              {trending.map(book => (
-                <div key={book.title} style={s.trendItem}>
-                  <BookCover color={book.color} title={book.title} width={40} height={56} />
-                  <div>
-                    <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-primary)' }}>{book.title}</p>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{book.author}</p>
-                  </div>
-                </div>
-              ))}
-            </Card>
-          </div>
+              </Card>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -156,25 +165,26 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
 }
 
 const s = {
-  body: { padding: '28px 32px', maxWidth: 1100, margin: '0 auto' },
+  body: { padding: '20px 16px', maxWidth: 1100, margin: '0 auto' },
   layout: { display: 'grid', gridTemplateColumns: '1fr 270px', gap: 24 },
+  layoutMobile: { display: 'flex', flexDirection: 'column' },
   feed: {},
   feedTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  feedTitle: { fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 600, color: 'var(--text-primary)' },
+  feedTitle: { fontFamily: "'Playfair Display', serif", fontSize: 'clamp(20px, 5vw, 22px)', fontWeight: 600, color: 'var(--text-primary)' },
   postCard: {
     background: 'var(--bg-secondary)',
     border: '1px solid var(--border-light)',
     borderRadius: 10,
-    padding: '16px 18px',
+    padding: '14px',
     marginBottom: 12,
     boxShadow: 'var(--shadow)',
   },
-  postHeader: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 },
+  postHeader: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' },
   postAuthor: { fontWeight: 500, fontSize: 13, color: 'var(--text-primary)' },
   postTime: { fontSize: 11, color: 'var(--text-muted)' },
   postTitle: { fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8, lineHeight: 1.3 },
   postBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: 14 },
-  postActions: { display: 'flex', gap: 8 },
+  postActions: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   actionBtn: {
     background: 'var(--bg-surface)',
     border: 'none',
@@ -194,14 +204,14 @@ const s = {
   trendItem: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 },
   modalOverlay: {
     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16,
   },
-  modal: { background: 'var(--bg-secondary)', borderRadius: 12, padding: 24, width: '90%', maxWidth: 500 },
+  modal: { background: 'var(--bg-secondary)', borderRadius: 12, padding: 20, width: '90%', maxWidth: 500 },
   modalTitle: { fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600, marginBottom: 16, color: 'var(--text-primary)' },
   modalInput: { width: '100%', padding: '10px 12px', border: '1.5px solid var(--border)', borderRadius: 6, fontSize: 13, marginBottom: 12, background: 'var(--bg-primary)', color: 'var(--text-primary)' },
   modalTextarea: { width: '100%', padding: '10px 12px', border: '1.5px solid var(--border)', borderRadius: 6, fontSize: 13, minHeight: 100, marginBottom: 12, background: 'var(--bg-primary)', color: 'var(--text-primary)' },
   modalSelect: { width: '100%', padding: '10px 12px', border: '1.5px solid var(--border)', borderRadius: 6, fontSize: 13, marginBottom: 16, background: 'var(--bg-primary)', color: 'var(--text-primary)' },
-  modalActions: { display: 'flex', gap: 12, justifyContent: 'flex-end' },
+  modalActions: { display: 'flex', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap' },
   modalCancel: { padding: '8px 16px', background: 'var(--bg-surface)', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'var(--text-secondary)' },
   modalSubmit: { padding: '8px 16px', background: 'var(--crimson)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' },
 };
