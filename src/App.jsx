@@ -37,7 +37,7 @@ export default function App() {
   const getInitialTheme = () => {
     const saved = localStorage.getItem('bookloop-theme');
     // Si el usuario nunca eligió explícitamente, forzar light
-    if (saved === 'dark' || saved === 'light') {
+    if (saved === 'light' || saved === 'light') {
       // Si fue el OS quien lo puso en dark (no el usuario), reseteamos a light
       const userChose = localStorage.getItem('bookloop-theme-user-chose');
       if (!userChose) {
