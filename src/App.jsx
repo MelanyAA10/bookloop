@@ -73,6 +73,16 @@ export default function App() {
   };
 
   // Auth pages
+    if (page === 'loanconfirm') {
+    return (
+      <LoanConfirmPage
+        onNavigate={navigate}
+        bookId={selectedBookId}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+    );
+  }
   if (page === 'login') {
     return (
       <LoginPage

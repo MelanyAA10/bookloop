@@ -2,16 +2,37 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Button, BookCover, Divider } from '../components/UI';
+import { apiFetch, getBookImageUrl } from '../config/api';
 
-export default function LoanConfirmPage({ onNavigate = () => {}, theme, onToggleTheme }) {
+export default function LoanConfirmPage({ onNavigate = () => {}, bookId, theme, onToggleTheme }) {
   const [checks, setChecks] = useState({ damage: false, edition: false, agree: false });
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  
+  const [book, setBook] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    const id = typeof bookId === 'object' ? bookId?.id : bookId;
+    if (id) fetchBook(id);
+  }, [bookId]);
+
+  const fetchBook = async (id) => {
+    setLoading(true);
+    try {
+      const response = await apiFetch(`/books/${id}`);
+      const data = await response.json();
+      setBook(data);
+    } catch (error) {
+      console.error('Error fetching book:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggle = k => setChecks(c => ({ ...c, [k]: !c[k] }));
   const allChecked = Object.values(checks).every(Boolean);
@@ -30,60 +51,93 @@ export default function LoanConfirmPage({ onNavigate = () => {}, theme, onToggle
           <div style={s.modalHeader}>
             <div>
               <h2 style={s.modalTitle}>Confirm Condition & Receive Book</h2>
-              <p style={s.modalSub}>You are receiving <strong>"La Casa de los Espíritus"</strong></p>
+              <p style={s.modalSub}>
+                {book ? <>You are receiving <strong>"{book.title}"</strong></> : 'Loading book...'}
+              </p>
             </div>
-            <button style={s.closeBtn} onClick={() => onNavigate('bookdetail')}>✕</button>
+            <button style={s.closeBtn} onClick={() => onNavigate('bookdetail', { id: bookId })}>✕</button>
           </div>
 
-          <div style={s.modalBody}>
-            <div style={s.bookRow}>
-              <BookCover color="#7A3728" title="La Casa de los Espíritus" width={isMobile ? 56 : 70} height={isMobile ? 77 : 96} />
-              <div>
-                <p style={s.bookTitle}>La Casa de los Espíritus</p>
-                <p style={s.bookMeta}>Isabel Allende · 450 pages</p>
-                <p style={s.bookMeta}>Lent by <strong>Aaron Salas</strong> · 4.5 ★</p>
+          {loading && (
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
+              <p>Cargando libro...</p>
+            </div>
+          )}
+
+          {!loading && !book && (
+            <div style={{ padding: 40, textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-secondary)' }}>No se pudo cargar el libro.</p>
+              <button onClick={() => onNavigate('discovery')} style={{ color: 'var(--crimson)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                Volver al inicio
+              </button>
+            </div>
+          )}
+
+          {!loading && book && (
+            <div style={s.modalBody}>
+              <div style={s.bookRow}>
+                <BookCover
+                  color={book.color || '#7A3728'}
+                  title={book.title}
+                  imageUrl={getBookImageUrl(book)}
+                  width={isMobile ? 56 : 70}
+                  height={isMobile ? 77 : 96}
+                />
+                <div>
+                  <p style={s.bookTitle}>{book.title}</p>
+                  <p style={s.bookMeta}>{book.author} · {book.pages} pages</p>
+                  <p style={s.bookMeta}>Lent by <strong>{book.owner?.name || 'Unknown'}</strong> · {book.owner?.rating || 0} ★</p>
+                </div>
               </div>
-            </div>
 
-            <Divider />
+              <Divider />
 
-            <p style={s.sectionLabel}>Condition Documentation</p>
-            <div style={isMobile ? s.photoGridMobile : s.photoGrid}>
-              {['Front Cover', 'Back Cover', 'Spine', 'Interior'].map(label => (
-                <div key={label} style={s.photoSlot}>
-                  <span style={s.photoPlus}>+</span>
-                  <span style={s.photoLabel}>{label}</span>
-                </div>
+              <p style={s.sectionLabel}>Condition Documentation</p>
+              <div style={isMobile ? s.photoGridMobile : s.photoGrid}>
+                {['Front Cover', 'Back Cover', 'Spine', 'Interior'].map(label => (
+                  <div key={label} style={s.photoSlot}>
+                    <span style={s.photoPlus}>+</span>
+                    <span style={s.photoLabel}>{label}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Divider />
+
+              <p style={s.sectionLabel}>Final Attestation</p>
+              {[
+                { key: 'damage', label: 'I have checked the book for visible damage' },
+                { key: 'edition', label: 'I verified this is the correct edition' },
+                { key: 'agree', label: 'I agree to return the book in the same condition' },
+              ].map(item => (
+                <label key={item.key} style={s.checkRow} onClick={() => toggle(item.key)}>
+                  <div style={{ ...s.checkbox, ...(checks[item.key] ? s.checkboxDone : {}) }}>
+                    {checks[item.key] && <span style={{ color: '#fff', fontSize: 10 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{item.label}</span>
+                </label>
               ))}
+
+              <Divider />
+
+              <div style={s.loanMeta}>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  Loan period: {book.owner?.maxDays || 14} days
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {book.owner?.maxDays || 14} days remaining
+                </span>
+              </div>
+
+              <Button
+                variant="full"
+                style={{ opacity: allChecked ? 1 : 0.5, pointerEvents: allChecked ? 'auto' : 'none', marginTop: 4 }}
+                onClick={() => onNavigate('discovery')}
+              >
+                Confirm Handoff
+              </Button>
             </div>
-
-            <Divider />
-
-            <p style={s.sectionLabel}>Final Attestation</p>
-            {[
-              { key: 'damage', label: 'I have checked the book for visible damage' },
-              { key: 'edition', label: 'I verified this is the correct edition' },
-              { key: 'agree', label: 'I agree to return the book in the same condition' },
-            ].map(item => (
-              <label key={item.key} style={s.checkRow} onClick={() => toggle(item.key)}>
-                <div style={{ ...s.checkbox, ...(checks[item.key] ? s.checkboxDone : {}) }}>
-                  {checks[item.key] && <span style={{ color: '#fff', fontSize: 10 }}>✓</span>}
-                </div>
-                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{item.label}</span>
-              </label>
-            ))}
-
-            <Divider />
-
-            <div style={s.loanMeta}>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loan period: 14 days</span>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>18 days remaining</span>
-            </div>
-
-            <Button variant="full" style={{ opacity: allChecked ? 1 : 0.5, pointerEvents: allChecked ? 'auto' : 'none', marginTop: 4 }} onClick={() => onNavigate('discovery')}>
-              Confirm Handoff
-            </Button>
-          </div>
+          )}
         </div>
       </div>
     </div>
