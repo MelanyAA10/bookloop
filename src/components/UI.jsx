@@ -3,7 +3,7 @@
 import React from 'react';
 
 /* ── Button ─────────────────────────────────────── */
-export function Button({ variant = 'primary', children, style, ...props }) {
+export function Button({ variant = 'primary', children, style, disabled, ...props }) {
   const base = {
     fontFamily: "'DM Sans', sans-serif",
     fontSize: 13,
@@ -56,15 +56,16 @@ export function Button({ variant = 'primary', children, style, ...props }) {
       color: '#D9534F',
     },
   };
+  const disabledStyle = disabled ? { opacity: 0.5, cursor: 'not-allowed' } : {};
   return (
-    <button style={{ ...base, ...variants[variant], ...style }} {...props}>
+    <button style={{ ...base, ...variants[variant], ...disabledStyle, ...style }} disabled={disabled} {...props}>
       {children}
     </button>
   );
 }
 
 /* ── Input ──────────────────────────────────────── */
-export function Input({ label, style, inputStyle, ...props }) {
+export function Input({ label, style, inputStyle, error, ...props }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5, ...style }}>
       {label && (
@@ -76,17 +77,22 @@ export function Input({ label, style, inputStyle, ...props }) {
         style={{
           width: '100%',
           padding: '9px 12px',
-          border: '1.5px solid #D9CFC0',
+          border: `1.5px solid ${error ? '#DC2626' : '#D9CFC0'}`,
           borderRadius: 6,
           fontSize: 13,
           fontFamily: "'DM Sans', sans-serif",
-          background: '#fff',
+          background: error ? '#FFF5F5' : '#fff',
           color: '#1A1009',
-          transition: 'border-color 0.18s',
+          transition: 'border-color 0.18s, background 0.18s',
           ...inputStyle,
         }}
         {...props}
       />
+      {error && (
+        <span style={{ fontSize: 11, color: '#DC2626', marginTop: -2, fontFamily: "'DM Sans', sans-serif" }}>
+          {error}
+        </span>
+      )}
     </div>
   );
 }

@@ -7,6 +7,23 @@ import { apiFetch } from '../config/api';
 
 const CONDITIONS = ['Excellent', 'Good', 'Fair'];
 const PHOTO_LABELS = ['Front', 'Back', 'Spine', 'Interior'];
+const CURRENT_YEAR = new Date().getFullYear();
+
+function validateYear(val) {
+  const n = parseInt(val, 10);
+  if (!val && val !== 0) return 'Year is required';
+  if (isNaN(n)) return 'Year must be a number';
+  if (n < 1500) return 'Year cannot be before 1500';
+  if (n > CURRENT_YEAR) return 'Year cannot be in the future';
+  return '';
+}
+
+function validatePages(val) {
+  const n = parseInt(val, 10);
+  if (!String(val).trim()) return 'Pages is required';
+  if (isNaN(n) || n <= 0) return 'Pages must be a positive number';
+  return '';
+}
 
 export default function AddBookPage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [form, setForm] = useState({
@@ -19,6 +36,8 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [fieldErrors, setFieldErrors] = useState({ year: '', pages: '' });
+  const [fieldTouched, setFieldTouched] = useState({ year: false, pages: false });
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -26,7 +45,20 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+  const set = k => e => {
+    const val = e.target.value;
+    setForm(f => ({ ...f, [k]: val }));
+    if (k === 'year' && fieldTouched.year) setFieldErrors(prev => ({ ...prev, year: validateYear(val) }));
+    if (k === 'pages' && fieldTouched.pages) setFieldErrors(prev => ({ ...prev, pages: validatePages(val) }));
+  };
+
+  const handleFieldBlur = (field) => {
+    setFieldTouched(prev => ({ ...prev, [field]: true }));
+    setFieldErrors(prev => ({
+      ...prev,
+      [field]: field === 'year' ? validateYear(form[field]) : validatePages(form[field]),
+    }));
+  };
 
   const handleImageChange = (index, url) => {
     setImages(prev => prev.map((v, i) => i === index ? url : v));
@@ -35,19 +67,18 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const yearErr = validateYear(form.year);
+    const pagesErr = validatePages(form.pages);
+    setFieldErrors({ year: yearErr, pages: pagesErr });
+    setFieldTouched({ year: true, pages: true });
+
+    if (!form.title.trim()) { setError('El título es requerido'); return; }
+    if (!form.author.trim()) { setError('El autor es requerido'); return; }
+    if (yearErr || pagesErr) return;
+
     setLoading(true);
     setError('');
-
-    if (!form.title.trim()) {
-      setError('El título es requerido');
-      setLoading(false);
-      return;
-    }
-    if (!form.author.trim()) {
-      setError('El autor es requerido');
-      setLoading(false);
-      return;
-    }
 
     const bookData = {
       title: form.title,
@@ -131,8 +162,26 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
                   <Input label="Language" placeholder="Spanish" value={form.language} onChange={set('language')} style={{ flex: 1 }} />
                 </div>
                 <div style={isMobile ? s.rowMobile : s.row}>
-                  <Input label="Year" placeholder="2024" type="number" value={form.year} onChange={set('year')} style={{ flex: 1 }} />
-                  <Input label="Pages" placeholder="200" type="number" value={form.pages} onChange={set('pages')} style={{ flex: 1 }} />
+                  <Input
+                    label="Year"
+                    placeholder="2024"
+                    type="number"
+                    value={form.year}
+                    onChange={set('year')}
+                    onBlur={() => handleFieldBlur('year')}
+                    error={fieldErrors.year}
+                    style={{ flex: 1 }}
+                  />
+                  <Input
+                    label="Pages"
+                    placeholder="200"
+                    type="number"
+                    value={form.pages}
+                    onChange={set('pages')}
+                    onBlur={() => handleFieldBlur('pages')}
+                    error={fieldErrors.pages}
+                    style={{ flex: 1 }}
+                  />
                 </div>
               </div>
             </div>
@@ -166,7 +215,11 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
 
             <Input label="Loan Period (days)" type="number" placeholder="14" value={form.loanDays} onChange={set('loanDays')} style={{ maxWidth: '100%', marginBottom: 20 }} />
 
-            <Button variant="full" type="submit" disabled={loading}>
+            <Button
+              variant="full"
+              type="submit"
+              disabled={loading || !!(fieldErrors.year || fieldErrors.pages)}
+            >
               {loading ? 'Creating...' : 'List My Book →'}
             </Button>
           </form>

@@ -11,17 +11,63 @@ import pajaros from '../assets/pajaros.png';
 import avion from '../assets/Avión.png';
 import arbol from '../assets/arbol.png';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateEmail(val) {
+  if (!val.trim()) return 'Email is required';
+  if (!EMAIL_RE.test(val)) return 'Enter a valid email address';
+  return '';
+}
+
+function validatePassword(val) {
+  if (!val) return 'Password is required';
+  if (val.length < 6) return 'Password must be at least 6 characters';
+  return '';
+}
+
 export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [errors, setErrors] = useState({ email: '', password: '' });
+  const [touched, setTouched] = useState({ email: false, password: false });
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
+    if (touched.email) setErrors(prev => ({ ...prev, email: validateEmail(e.target.value) }));
+  };
+
+  const handlePasswordChange = (e) => {
+    setPassword(e.target.value);
+    if (touched.password) setErrors(prev => ({ ...prev, password: validatePassword(e.target.value) }));
+  };
+
+  const handleBlur = (field, val) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    setErrors(prev => ({
+      ...prev,
+      [field]: field === 'email' ? validateEmail(val) : validatePassword(val),
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const emailErr = validateEmail(email);
+    const passwordErr = validatePassword(password);
+    setErrors({ email: emailErr, password: passwordErr });
+    setTouched({ email: true, password: true });
+    if (emailErr || passwordErr) return;
+    onLogin();
+  };
+
+  const hasErrors = !!(errors.email || errors.password);
 
   return (
     <div style={s.root}>
@@ -56,13 +102,15 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
           <h1 style={s.heading}>Welcome back</h1>
           <p style={s.subheading}>Sign in to continue lending &amp; borrowing</p>
 
-          <form onSubmit={e => { e.preventDefault(); onLogin(); }} style={s.form}>
+          <form onSubmit={handleSubmit} style={s.form}>
             <Input
               label="University Email"
-              type="email"
+              type="text"
               placeholder="domain@tec.cr"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={handleEmailChange}
+              onBlur={() => handleBlur('email', email)}
+              error={errors.email}
             />
 
             <div style={{ position: 'relative' }}>
@@ -71,12 +119,14 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
                 type={showPw ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
+                onBlur={() => handleBlur('password', password)}
+                error={errors.password}
               />
               <button
                 type="button"
                 onClick={() => setShowPw(v => !v)}
-                style={s.eyeBtn}
+                style={{ ...s.eyeBtn, bottom: errors.password ? 33 : 11 }}
               >
                 {showPw ? '○' : '●'}
               </button>
@@ -86,7 +136,7 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
               <button type="button" style={s.forgotLink}>Forgot password?</button>
             </div>
 
-            <Button variant="full" type="submit">
+            <Button variant="full" type="submit" disabled={touched.email && touched.password && hasErrors}>
               Sign In →
             </Button>
           </form>
