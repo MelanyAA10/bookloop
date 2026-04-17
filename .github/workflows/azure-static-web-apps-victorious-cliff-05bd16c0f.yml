@@ -14,6 +14,7 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     name: Build and Deploy Job
+    environment: dev          # ← AGREGAR ESTA LÍNEA
     steps:
       - uses: actions/checkout@v3
         with:
@@ -30,13 +31,14 @@ jobs:
           api_location: ""
           output_location: "dist"
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
-          VITE_API_KEY: ${{ secrets.VITE_API_KEY }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_API_KEY: ${{ vars.VITE_API_KEY }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
     name: Close Pull Request Job
+    environment: dev          # ← AGREGAR ESTA LÍNEA
     steps:
       - name: Close Pull Request
         id: closepullrequest
