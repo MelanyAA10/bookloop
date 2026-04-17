@@ -335,7 +335,7 @@ const s = {
   principito: {
     position: 'absolute',
     top: '78.3%',
-    left: '44%',
+    left: '42.5%',
     transform: 'translate(-50%, -50%)',
     width: 447,
     zIndex: 2,
@@ -346,7 +346,7 @@ const s = {
   zorrito: {
     position: 'absolute',
     top: '50%',
-    right: '22.5%',
+    right: '23%',
     transform: 'translate(50%, -50%)',
     width: 220,
     zIndex: 2,

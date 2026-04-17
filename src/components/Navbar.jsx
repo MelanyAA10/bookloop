@@ -91,22 +91,33 @@ export default function Navbar({
             background: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.25)',
           }}
         >
-          <span style={{ ...styles.trackIcon, opacity: isDark ? 0.5 : 0.35 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="1">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          {/* Sol (lado izquierdo) */}
+          <span style={{ ...styles.trackIcon, opacity: isDark ? 0.5 : 1 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <circle cx="12" cy="12" r="4"/>
+              <line x1="12" y1="2" x2="12" y2="5"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+              <line x1="4.93" y1="4.93" x2="7.05" y2="7.05"/>
+              <line x1="16.95" y1="16.95" x2="19.07" y2="19.07"/>
+              <line x1="2" y1="12" x2="5" y2="12"/>
+              <line x1="19" y1="12" x2="22" y2="12"/>
+              <line x1="4.93" y1="19.07" x2="7.05" y2="16.95"/>
+              <line x1="16.95" y1="7.05" x2="19.07" y2="4.93"/>
             </svg>
           </span>
+
+          {/* Thumb (bolita que se mueve) */}
           <span style={{
             ...styles.thumb,
-            transform: isDark ? 'translateX(0px)' : 'translateX(24px)',
+            transform: isDark ? 'translateX(24px)' : 'translateX(0px)',
             background: '#fff',
           }}>
             {isDark ? (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="#1A1009" stroke="#1A1009" strokeWidth="1">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="#1A1009" stroke="#1A1009" strokeWidth="1">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
               </svg>
             ) : (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5A0E0E" strokeWidth="2.5">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="#5A0E0E" stroke="#5A0E0E" strokeWidth="1">
                 <circle cx="12" cy="12" r="4"/>
                 <line x1="12" y1="2" x2="12" y2="5"/>
                 <line x1="12" y1="19" x2="12" y2="22"/>
@@ -119,17 +130,11 @@ export default function Navbar({
               </svg>
             )}
           </span>
-          <span style={{ ...styles.trackIcon, justifyContent: 'flex-end', opacity: isDark ? 0.35 : 0.5 }}>
+
+          {/* Luna (lado derecho) */}
+          <span style={{ ...styles.trackIcon, justifyContent: 'flex-end', opacity: isDark ? 1 : 0.5 }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-              <circle cx="12" cy="12" r="4"/>
-              <line x1="12" y1="2" x2="12" y2="5"/>
-              <line x1="12" y1="19" x2="12" y2="22"/>
-              <line x1="4.93" y1="4.93" x2="7.05" y2="7.05"/>
-              <line x1="16.95" y1="16.95" x2="19.07" y2="19.07"/>
-              <line x1="2" y1="12" x2="5" y2="12"/>
-              <line x1="19" y1="12" x2="22" y2="12"/>
-              <line x1="4.93" y1="19.07" x2="7.05" y2="16.95"/>
-              <line x1="16.95" y1="7.05" x2="19.07" y2="4.93"/>
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
             </svg>
           </span>
         </button>
@@ -264,8 +269,8 @@ const styles = {
   },
   toggle: {
     position: 'relative',
-    width: 52,
-    height: 26,
+    width: 56,
+    height: 28,
     borderRadius: 99,
     border: '1.5px solid rgba(255,255,255,0.25)',
     cursor: 'pointer',
@@ -279,13 +284,16 @@ const styles = {
   trackIcon: {
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
     pointerEvents: 'none',
     zIndex: 0,
+    width: 18,
+    height: 18,
   },
   thumb: {
     position: 'absolute',
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     borderRadius: '50%',
     display: 'flex',
     alignItems: 'center',
@@ -293,7 +301,7 @@ const styles = {
     transition: 'transform 0.28s ease',
     boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
     pointerEvents: 'none',
-    left: 3,
+    left: 2,
     zIndex: 1,
   },
   addBtn: {
