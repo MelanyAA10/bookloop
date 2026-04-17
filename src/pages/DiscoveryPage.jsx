@@ -58,19 +58,7 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
     currentPage * booksPerPage
   );
 
-  const featuredBook = books.length > 0 ? books[0] : {
-    id: 1,
-    color: '#7A3728',
-    title: 'La Casa de los Espíritus',
-    author: 'Isabel Allende',
-    year: 1982,
-    pages: 450,
-    language: 'Spanish',
-    genre: 'Fiction',
-    owner: { initials: 'AS', name: 'Aaron Salas', rating: 4.5 },
-    synopsis: 'Una obra maestra del realismo mágico latinoamericano.'
-  };
-
+  const featuredBook = books.length > 0 ? books[0] : null;
   const alsoAvailable = books.slice(1, isMobile ? 2 : 3);
 
   return (
@@ -91,7 +79,7 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        
+
         <div style={s.genreTags}>
           {GENRES.map(g => (
             <Tag key={g} active={activeGenre === g} onClick={() => setActiveGenre(g)}>{g}</Tag>
@@ -104,7 +92,15 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
           </div>
         )}
 
-        {!loading && (
+        {!loading && books.length === 0 && (
+          <div style={s.emptyState}>
+            <p style={s.emptyTitle}>No books available yet</p>
+            <p style={s.emptySubtitle}>Be the first to add a book to the community.</p>
+            <button style={s.btnPrimary} onClick={() => onNavigate('addbook')}>Add a Book</button>
+          </div>
+        )}
+
+        {!loading && featuredBook && (
           <>
             <div style={isMobile ? s.featuredMobile : s.featured}>
               <BookCover
@@ -292,6 +288,27 @@ const s = {
   gridItem: { cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6 },
   gridTitle: { fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.3 },
   gridAuthor: { fontSize: 11, color: 'var(--text-muted)' },
+  emptyState: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '60px 20px',
+    gap: 10,
+    textAlign: 'center',
+  },
+  emptyTitle: {
+    fontFamily: "'Playfair Display', serif",
+    fontSize: 20,
+    fontWeight: 600,
+    color: 'var(--text-primary)',
+    margin: 0,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: 'var(--text-muted)',
+    margin: 0,
+  },
   pagination: {
     display: 'flex',
     justifyContent: 'center',
