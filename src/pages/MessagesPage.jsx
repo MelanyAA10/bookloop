@@ -92,17 +92,15 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
       if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
       
       const data = await response.json();
-      const newMsg = data?.data || data; // dependiendo de la estructura de tu API
+      const newMsg = data?.data || data;
       if (newMsg && newMsg.text) {
         setMessages(prev => [...prev, newMsg]);
       } else {
-        // Si la API no devuelve el mensaje creado, recargamos la lista
         await fetchMessages(activeId);
       }
     } catch (err) {
       console.error('Error sending message:', err);
       alert('No se pudo enviar el mensaje. Intenta de nuevo.');
-      // No agregamos nada al estado local para no romper la coherencia con el backend
     } finally {
       setSending(false);
     }
@@ -110,7 +108,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
 
   const activeConversation = conversations.find(c => c.id === activeId);
 
-  // Estado de carga inicial
   if (loadingConv) {
     return (
       <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
@@ -120,7 +117,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
     );
   }
 
-  // Error al cargar conversaciones
   if (errorConv) {
     return (
       <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
@@ -130,7 +126,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
     );
   }
 
-  // No hay conversaciones
   if (conversations.length === 0) {
     return (
       <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
@@ -142,12 +137,7 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
 
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
-      <Navbar
-        activePage="messages"
-        onNavigate={onNavigate}
-        theme={theme}
-        onToggleTheme={onToggleTheme}
-      />
+      <Navbar activePage="messages" onNavigate={onNavigate} theme={theme} onToggleTheme={onToggleTheme} />
 
       <div style={s.layout}>
         <div style={s.sidebar}>
@@ -222,7 +212,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
   );
 }
 
-// Los estilos (s) se mantienen exactamente igual que en el código original
 const s = {
   layout: { display: 'grid', gridTemplateColumns: '300px 1fr', minHeight: 'calc(100vh - 56px)' },
   sidebar: { background: 'var(--bg-secondary)', borderRight: '1px solid var(--border-light)', display: 'flex', flexDirection: 'column' },
