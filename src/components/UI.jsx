@@ -292,6 +292,7 @@ export function BookCover({ color = '#7A3728', title, width = 80, height = 110, 
         <img
           src={imageUrl}
           alt={title}
+          onLoad={handleLoad}
           onError={() => setImgError(true)}
           style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
         />
