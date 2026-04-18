@@ -147,7 +147,6 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
                     />
                   ) : (
                     <>
-                      <span style={{ fontSize: 28, color: 'var(--text-muted)' }}>📚</span>
                       <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Cover Preview</span>
                     </>
                   )}

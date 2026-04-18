@@ -1,10 +1,16 @@
-// src/pages/DiscoveryPage.jsx - Responsive version
+// src/pages/DiscoveryPage.jsx
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Tag, Badge, Avatar, Stars, BookCover, SectionLabel } from '../components/UI';
 import { apiFetch, getBookImageUrl } from '../config/api';
 
 const GENRES = ['All', 'Fiction', 'Science', 'History', 'Philosophy', 'Technology', 'Art'];
+
+// Portadas de Recent Additions: mismo tamaño que el Featured (200×280)
+const COVER_W = 200;
+const COVER_H = 280;
+const COVER_W_MOBILE = 140;
+const COVER_H_MOBILE = 196;
 
 export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [activeGenre, setActiveGenre] = useState('All');
@@ -21,21 +27,15 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    fetchBooks();
-  }, []);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, activeGenre]);
+  useEffect(() => { fetchBooks(); }, []);
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, activeGenre]);
 
   const fetchBooks = async () => {
     setLoading(true);
     try {
       const response = await apiFetch('/books');
       const result = await response.json();
-      const booksList = Array.isArray(result) ? result : (result.data || []);
-      setBooks(booksList);
+      setBooks(Array.isArray(result) ? result : (result.data || []));
     } catch (error) {
       console.error('Error fetching books:', error);
       setBooks([]);
@@ -46,31 +46,30 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
 
   const filteredBooks = books.filter(book => {
     const matchesGenre = activeGenre === 'All' || book.genre === activeGenre;
-    const matchesSearch = book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          book.author.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch =
+      book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      book.author.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesGenre && matchesSearch;
   });
 
   const filteredTotalPages = Math.ceil(filteredBooks.length / booksPerPage) || 1;
-
   const paginatedBooks = filteredBooks.slice(
     (currentPage - 1) * booksPerPage,
     currentPage * booksPerPage
   );
 
-  const featuredBook = books.length > 0 ? books[0] : null;
-  const alsoAvailable = books.slice(1, isMobile ? 2 : 3);
+  const featuredBook = books[0] ?? null;
+  const alsoAvailable = books.slice(1, 4);
+
+  const coverW = isMobile ? COVER_W_MOBILE : COVER_W;
+  const coverH = isMobile ? COVER_H_MOBILE : COVER_H;
 
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
-      <Navbar
-        activePage="discovery"
-        onNavigate={onNavigate}
-        theme={theme}
-        onToggleTheme={onToggleTheme}
-      />
+      <Navbar activePage="discovery" onNavigate={onNavigate} theme={theme} onToggleTheme={onToggleTheme} />
 
       <div style={s.body}>
+        {/* Search */}
         <div style={s.searchRow}>
           <input
             style={s.searchInput}
@@ -80,6 +79,7 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
           />
         </div>
 
+        {/* Genres */}
         <div style={s.genreTags}>
           {GENRES.map(g => (
             <Tag key={g} active={activeGenre === g} onClick={() => setActiveGenre(g)}>{g}</Tag>
@@ -102,6 +102,7 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
 
         {!loading && featuredBook && (
           <>
+            {/* ── Featured card ── */}
             <div style={isMobile ? s.featuredMobile : s.featured}>
               <BookCover
                 color={featuredBook.color}
@@ -138,61 +139,98 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
                 </div>
               </div>
 
-              {!isMobile && (
+              {/* Also Available — sidebar lista compacta */}
+              {!isMobile && alsoAvailable.length > 0 && (
                 <div style={s.sidebar}>
                   <SectionLabel>Also Available</SectionLabel>
                   {alsoAvailable.map(book => (
-                    <div key={book.id} onClick={() => onNavigate('bookdetail', { id: book.id })} style={{ cursor: 'pointer' }}>
+                    <div key={book.id} style={s.alsoItem} onClick={() => onNavigate('bookdetail', { id: book.id })}>
                       <BookCover
                         color={book.color}
                         title={book.title}
                         imageUrl={getBookImageUrl(book)}
-                        width="100%"
-                        height={148}
-                        style={{ borderRadius: 8, marginBottom: 10, width: '100%' }}
+                        width={40}
+                        height={56}
+                        style={{ borderRadius: 4, flexShrink: 0 }}
                       />
+                      <div style={s.alsoInfo}>
+                        <p style={s.alsoTitle}>{book.title}</p>
+                        <p style={s.alsoAuthor}>{book.author}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
+            {/* Also Available mobile */}
+            {isMobile && alsoAvailable.length > 0 && (
+              <div style={{ marginTop: 20 }}>
+                <SectionLabel style={{ marginBottom: 12 }}>Also Available</SectionLabel>
+                {alsoAvailable.map(book => (
+                  <div key={book.id} style={s.alsoItem} onClick={() => onNavigate('bookdetail', { id: book.id })}>
+                    <BookCover color={book.color} title={book.title} imageUrl={getBookImageUrl(book)} width={40} height={56} style={{ borderRadius: 4, flexShrink: 0 }} />
+                    <div style={s.alsoInfo}>
+                      <p style={s.alsoTitle}>{book.title}</p>
+                      <p style={s.alsoAuthor}>{book.author}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── Recent Additions ── */}
             <div style={{ marginTop: 36 }}>
               <SectionLabel style={{ marginBottom: 16, fontSize: 12 }}>Recent Additions</SectionLabel>
+
               <div style={isMobile ? s.gridMobile : s.grid}>
                 {paginatedBooks.map(book => (
-                  <div key={book.id} style={s.gridItem} onClick={() => onNavigate('bookdetail', { id: book.id })}>
-                    <BookCover
-                      color={book.color}
-                      title={book.title}
-                      imageUrl={getBookImageUrl(book)}
-                      width="100%"
-                      height={isMobile ? 100 : 130}
-                      style={{ borderRadius: 8, cursor: 'pointer', width: '100%' }}
-                    />
-                    <p style={s.gridTitle}>{book.title}</p>
-                    <p style={s.gridAuthor}>{book.author}</p>
+                  <div
+                    key={book.id}
+                    style={s.gridItem}
+                    onClick={() => onNavigate('bookdetail', { id: book.id })}
+                  >
+                    {/* Mismo tamaño exacto que el featured: 200×280 desktop / 140×196 mobile */}
+                    <div
+                      style={{
+                        width: coverW,
+                        height: coverH,
+                        borderRadius: 8,
+                        overflow: 'hidden',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-4px)';
+                        e.currentTarget.style.boxShadow = '0 10px 24px rgba(0,0,0,0.22)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                      }}
+                    >
+                      <BookCover
+                        color={book.color}
+                        title={book.title}
+                        imageUrl={getBookImageUrl(book)}
+                        width={coverW}
+                        height={coverH}
+                        style={{ borderRadius: 0 }}
+                      />
+                    </div>
+                    <p style={{ ...s.gridTitle, width: coverW }}>{book.title}</p>
+                    <p style={{ ...s.gridAuthor, width: coverW }}>{book.author}</p>
                   </div>
                 ))}
               </div>
 
               {filteredTotalPages > 1 && (
                 <div style={s.pagination}>
-                  <button
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(p => p - 1)}
-                    style={{ ...s.pageBtn, opacity: currentPage === 1 ? 0.5 : 1 }}
-                  >
-                    ← Previous
-                  </button>
+                  <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} style={{ ...s.pageBtn, opacity: currentPage === 1 ? 0.5 : 1 }}>← Previous</button>
                   <span style={s.pageInfo}>Page {currentPage} of {filteredTotalPages}</span>
-                  <button
-                    disabled={currentPage === filteredTotalPages}
-                    onClick={() => setCurrentPage(p => p + 1)}
-                    style={{ ...s.pageBtn, opacity: currentPage === filteredTotalPages ? 0.5 : 1 }}
-                  >
-                    Next →
-                  </button>
+                  <button disabled={currentPage === filteredTotalPages} onClick={() => setCurrentPage(p => p + 1)} style={{ ...s.pageBtn, opacity: currentPage === filteredTotalPages ? 0.5 : 1 }}>Next →</button>
                 </div>
               )}
             </div>
@@ -220,7 +258,7 @@ const s = {
   genreTags: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 },
   featured: {
     display: 'grid',
-    gridTemplateColumns: '200px 1fr 200px',
+    gridTemplateColumns: '200px 1fr 220px',
     gap: 28,
     background: 'var(--bg-secondary)',
     border: '1px solid var(--border-light)',
@@ -274,20 +312,69 @@ const s = {
     cursor: 'pointer',
     boxShadow: '0 2px 8px rgba(139,28,28,0.28)',
   },
-  sidebar: { display: 'flex', flexDirection: 'column' },
+  sidebar: { display: 'flex', flexDirection: 'column', gap: 4 },
+  alsoItem: {
+    display: 'flex',
+    gap: 10,
+    alignItems: 'center',
+    cursor: 'pointer',
+    padding: '8px 0',
+    borderBottom: '1px solid var(--border-light)',
+  },
+  alsoInfo: { flex: 1, minWidth: 0 },
+  alsoTitle: {
+    fontSize: 12,
+    fontWeight: 500,
+    color: 'var(--text-primary)',
+    marginBottom: 2,
+    lineHeight: 1.3,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    margin: 0,
+  },
+  alsoAuthor: {
+    fontSize: 11,
+    color: 'var(--text-muted)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    margin: 0,
+  },
+  // grid centra las portadas de tamaño fijo dentro de cada celda
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
-    gap: 14,
+    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gap: 28,
+    justifyItems: 'center',
   },
   gridMobile: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: 12,
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: 20,
+    justifyItems: 'center',
   },
-  gridItem: { cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6 },
-  gridTitle: { fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.3 },
-  gridAuthor: { fontSize: 11, color: 'var(--text-muted)' },
+  gridItem: {
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 8,
+  },
+  gridTitle: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: 'var(--text-primary)',
+    lineHeight: 1.3,
+    margin: 0,
+    textAlign: 'center',
+  },
+  gridAuthor: {
+    fontSize: 12,
+    color: 'var(--text-muted)',
+    margin: 0,
+    textAlign: 'center',
+  },
   emptyState: {
     display: 'flex',
     flexDirection: 'column',
@@ -304,11 +391,7 @@ const s = {
     color: 'var(--text-primary)',
     margin: 0,
   },
-  emptySubtitle: {
-    fontSize: 13,
-    color: 'var(--text-muted)',
-    margin: 0,
-  },
+  emptySubtitle: { fontSize: 13, color: 'var(--text-muted)', margin: 0 },
   pagination: {
     display: 'flex',
     justifyContent: 'center',
