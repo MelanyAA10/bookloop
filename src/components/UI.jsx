@@ -267,6 +267,10 @@ export function Stars({ value = 5, max = 5, size = 13 }) {
 export function BookCover({ color = '#7A3728', title, width = 80, height = 110, imageUrl, style }) {
   const [imgError, setImgError] = React.useState(false);
   const showImage = imageUrl && !imgError;
+  const handleLoad = (e) => {
+    
+    if (e.target.naturalWidth <= 1) setImgError(true);
+  };
   return (
     <div
       style={{

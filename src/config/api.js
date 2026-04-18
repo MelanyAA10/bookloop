@@ -13,10 +13,9 @@ export const apiFetch = async (endpoint, options = {}) => {
 export const getBookImageUrl = (book) => {
   if (book?.images?.length > 0 && book.images[0]) return book.images[0];
   if (book?.cover_url) return book.cover_url;
-  if (book?.isbn) return `https://covers.openlibrary.org/b/isbn/${book.isbn}-M.jpg?default=false`;
+  if (book?.isbn) return `https://covers.openlibrary.org/b/isbn/${book.isbn}-M.jpg`;
   return null;
 };
-
 /**
  * Returns the primary image URL for a book.
  * Fase 2: swap this function to upload the file to Azure Blob Storage
