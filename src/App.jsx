@@ -26,83 +26,98 @@ const PAGES = {
   profile:     ProfilePage,
 };
 
+// ─── Clave única en localStorage ─────────────────────────────────────────────
+const THEME_KEY = 'bookloop-theme';
+
+/**
+ * Lee el tema persistido en localStorage.
+ * - Si existe 'dark' o 'light' guardado, lo respeta siempre.
+ * - Solo cae al default 'light' cuando no hay ningún valor guardado aún.
+ */
+const getInitialTheme = () => {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'dark' || saved === 'light') return saved;
+  } catch {
+    // localStorage puede estar bloqueado en modo privado.
+  }
+  return 'light';
+};
+
+
 export default function App() {
   const [page, setPage] = useState('login');
   const [selectedBookId, setSelectedBookId] = useState(null);
 
-  // ── TEMA ────────────────────────────────────────────────────────────────
-  // FIX: en la pantalla de login/signup siempre forzamos light,
-  // para evitar que el heading "Welcome back" herede el color blanco del dark mode.
-  // El tema del OS solo se aplica una vez que el usuario ya inició sesión.
-  const getInitialTheme = () => {
-    const saved = localStorage.getItem('bookloop-theme');
-    // Si el usuario nunca eligió explícitamente, forzar light
-    if (saved === 'light' || saved === 'light') {
-      // Si fue el OS quien lo puso en dark (no el usuario), reseteamos a light
-      const userChose = localStorage.getItem('bookloop-theme-user-chose');
-      if (!userChose) {
-        localStorage.setItem('bookloop-theme', 'light');
-        return 'light';
-      }
-      return saved;
-    }
-    return 'light';
-  };
-
+  // El estado del tema se inicializa UNA sola vez leyendo localStorage.
   const [theme, setTheme] = useState(getInitialTheme);
 
-  // Aplica la clase al <body> cada vez que cambie el tema,
-  // pero en login/signup siempre fuerza 'light' en el body.
+  /**
+   * Efecto de sincronización: cada vez que cambia `theme` o `page`,
+   * aplica la clase correcta al <body> y persiste en localStorage.
+   *
+   * Regla visual para auth: login y signup se renderizan siempre en 'light'
+   * porque su diseño no soporta dark mode. El estado `theme` conserva el
+   * valor real para restaurarlo al navegar a otras páginas.
+   */
   useEffect(() => {
     const isAuthPage = page === 'login' || page === 'signup';
+    const bodyTheme  = isAuthPage ? 'light' : theme;
+
     document.body.classList.remove('light', 'dark');
-    document.body.classList.add(isAuthPage ? 'light' : theme);
-    localStorage.setItem('bookloop-theme', theme);
+    document.body.classList.add(bodyTheme);
+
+    // Solo persistimos el tema cuando el usuario ya pasó el login,
+    // para no pisar su preferencia con 'light' al recargar.
+    if (!isAuthPage) {
+      try {
+        localStorage.setItem(THEME_KEY, theme);
+      } catch {
+        // Silenciar errores de escritura en contextos restringidos.
+      }
+    }
   }, [theme, page]);
 
+  /** Alterna entre 'dark' y 'light', persiste y actualiza el estado. */
   const toggleTheme = () => {
-    localStorage.setItem('bookloop-theme-user-chose', 'true');
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      try {
+        // Persistir aquí garantiza que localStorage tenga el valor correcto
+        // incluso si el efecto se ejecuta de forma asíncrona.
+        localStorage.setItem(THEME_KEY, next);
+      } catch { /* silenciar */ }
+      return next;
+    });
   };
-  // ────────────────────────────────────────────────────────────────────────
 
+  // ── Navegación ────────────────────────────────────────────────────────────
   const navigate = (to, data = null) => {
-    if (data && data.id) setSelectedBookId(data.id);
+    if (data?.id) setSelectedBookId(data.id);
     if (to === 'discovery') setSelectedBookId(null);
     if (PAGES[to]) setPage(to);
   };
 
-  // Auth pages
-    if (page === 'loanconfirm') {
-    return (
-      <LoanConfirmPage
-        onNavigate={navigate}
-        bookId={selectedBookId}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
-    );
-  }
+  // ── Render por página ─────────────────────────────────────────────────────
+  // Las páginas de autenticación no reciben onToggleTheme intencionalmente.
   if (page === 'login') {
     return (
       <LoginPage
         onLogin={() => navigate('discovery')}
         onSignup={() => navigate('signup')}
-        theme={theme}
-        onToggleTheme={toggleTheme}
       />
     );
   }
+
   if (page === 'signup') {
     return (
       <SignupPage
         onSignup={() => navigate('discovery')}
         onLogin={() => navigate('login')}
-        theme={theme}
-        onToggleTheme={toggleTheme}
       />
     );
   }
+
   if (page === 'bookdetail') {
     return (
       <BookDetailPage
@@ -114,6 +129,24 @@ export default function App() {
     );
   }
 
+  if (page === 'loanconfirm') {
+    return (
+      <LoanConfirmPage
+        onNavigate={navigate}
+        bookId={selectedBookId}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+    );
+  }
+
+  // Todas las demás páginas autenticadas reciben las props de tema.
   const Page = PAGES[page] || DiscoveryPage;
-  return <Page onNavigate={navigate} theme={theme} onToggleTheme={toggleTheme} />;
+  return (
+    <Page
+      onNavigate={navigate}
+      theme={theme}
+      onToggleTheme={toggleTheme}
+    />
+  );
 }
