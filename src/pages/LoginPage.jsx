@@ -1,8 +1,11 @@
-// src/pages/LoginPage.jsx - Responsive version (partial - fix positions)
 // src/pages/LoginPage.jsx
 import React, { useState, useEffect } from 'react';
 import Logo from '../components/Logo';
 import { Button, Input } from '../components/UI';
+
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../firebase';
+
 import illustration from '../assets/bookloop-illustration.png';
 import principito from '../assets/principito.png';
 import planeta from '../assets/planeta.png';
@@ -28,10 +31,15 @@ function validatePassword(val) {
 export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
   const [showPw, setShowPw] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
   const [errors, setErrors] = useState({ email: '', password: '' });
   const [touched, setTouched] = useState({ email: false, password: false });
+
+  const [loading, setLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -39,42 +47,102 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const getFirebaseError = (code) => {
+    switch (code) {
+      case 'auth/invalid-email':
+        return 'El correo electrónico no es válido.';
+      case 'auth/user-disabled':
+        return 'Este usuario está deshabilitado.';
+      case 'auth/user-not-found':
+        return 'No existe una cuenta con este correo.';
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        return 'Correo o contraseña incorrectos.';
+      default:
+        return 'No se pudo iniciar sesión. Intente nuevamente.';
+    }
+  };
+
   const handleEmailChange = (e) => {
     setEmail(e.target.value);
-    if (touched.email) setErrors(prev => ({ ...prev, email: validateEmail(e.target.value) }));
+    setLoginError('');
+
+    if (touched.email) {
+      setErrors(prev => ({
+        ...prev,
+        email: validateEmail(e.target.value),
+      }));
+    }
   };
 
   const handlePasswordChange = (e) => {
     setPassword(e.target.value);
-    if (touched.password) setErrors(prev => ({ ...prev, password: validatePassword(e.target.value) }));
+    setLoginError('');
+
+    if (touched.password) {
+      setErrors(prev => ({
+        ...prev,
+        password: validatePassword(e.target.value),
+      }));
+    }
   };
 
   const handleBlur = (field, val) => {
     setTouched(prev => ({ ...prev, [field]: true }));
+
     setErrors(prev => ({
       ...prev,
-      [field]: field === 'email' ? validateEmail(val) : validatePassword(val),
+      [field]: field === 'email'
+        ? validateEmail(val)
+        : validatePassword(val),
     }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const emailErr = validateEmail(email);
-    const passwordErr = validatePassword(password);
-    setErrors({ email: emailErr, password: passwordErr });
-    setTouched({ email: true, password: true });
-    if (emailErr || passwordErr) return;
-    onLogin();
-  };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  console.log('Botón de login presionado');
+
+  const emailErr = validateEmail(email);
+  const passwordErr = validatePassword(password);
+
+  setErrors({ email: emailErr, password: passwordErr });
+  setTouched({ email: true, password: true });
+  setLoginError('');
+
+  if (emailErr || passwordErr) {
+    console.log('Errores de validación:', { emailErr, passwordErr });
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    console.log('Intentando iniciar sesión con:', email.trim());
+
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email.trim(),
+      password
+    );
+
+    console.log('Login correcto:', userCredential.user.uid);
+
+    onLogin(userCredential.user);
+  } catch (err) {
+    console.error('Error al iniciar sesión:', err.code, err.message);
+    setLoginError(getFirebaseError(err.code));
+  } finally {
+    setLoading(false);
+  }
+};
 
   const hasErrors = !!(errors.email || errors.password);
 
   return (
     <div style={s.root}>
-      {/* Fondo */}
       <div style={{ ...s.bgIllustration, backgroundImage: `url(${illustration})` }} />
 
-      {/* Panel login */}
       <div style={isMobile ? s.panelMobile : s.panel}>
         <div style={s.brand}>
           <Logo size={isMobile ? 32 : 38} variant="light" />
@@ -123,6 +191,7 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
                 onBlur={() => handleBlur('password', password)}
                 error={errors.password}
               />
+
               <button
                 type="button"
                 onClick={() => setShowPw(v => !v)}
@@ -133,11 +202,19 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <button type="button" style={s.forgotLink}>Forgot password?</button>
+              <button type="button" style={s.forgotLink}>
+                Forgot password?
+              </button>
             </div>
 
-            <Button variant="full" type="submit" disabled={touched.email && touched.password && hasErrors}>
-              Sign In →
+            {loginError && <p style={s.error}>{loginError}</p>}
+
+            <Button
+              variant="full"
+              type="submit"
+              disabled={loading || (touched.email && touched.password && hasErrors)}
+            >
+              {loading ? 'Signing in...' : 'Sign In →'}
             </Button>
           </form>
 
@@ -150,7 +227,6 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
         </div>
       </div>
 
-      {/* Floating elements - hide on mobile */}
       {!isMobile && (
         <>
           <img src={avion} alt="avion" style={s.avion} />
@@ -262,7 +338,11 @@ const s = {
     background: '#FFFFFF',
   },
 
-  heading: { fontSize: 'clamp(24px, 6vw, 28px)', fontWeight: 700, color: '#1A1009' },
+  heading: {
+    fontSize: 'clamp(24px, 6vw, 28px)',
+    fontWeight: 700,
+    color: '#1A1009',
+  },
 
   subheading: {
     fontSize: 14,
@@ -281,12 +361,17 @@ const s = {
     right: 12,
     bottom: 11,
     background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    color: '#8B1C1C',
   },
 
   forgotLink: {
     color: '#8B1C1C',
     fontSize: 12,
     background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
   },
 
   signupPrompt: {
@@ -299,9 +384,20 @@ const s = {
     color: '#8B1C1C',
     textDecoration: 'underline',
     background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
   },
 
-  // Hide decorative elements on mobile
+  error: {
+    background: '#FDECEC',
+    color: '#8B1C1C',
+    border: '1px solid rgba(139,28,28,0.2)',
+    borderRadius: 8,
+    padding: '10px 12px',
+    fontSize: 12,
+    margin: 0,
+  },
+
   avion: {
     position: 'absolute',
     top: '65%',
