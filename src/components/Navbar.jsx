@@ -5,7 +5,7 @@ import Logo from './Logo';
 export default function Navbar({
   activePage = 'discovery',
   onNavigate = () => {},
-  user = { initials: 'JR', name: 'Juliet Ramos' },
+  user = { initials: 'I', name: 'Invitado' },    
   theme = 'light',
   onToggleTheme = () => {},
 }) {

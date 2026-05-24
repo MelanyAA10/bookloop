@@ -93,7 +93,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
       synopsis: form.description,
       images: images.filter(Boolean),
       cover_url: images[0] || '',
-      owner: { initials: 'JR', name: 'Juliet Ramos', rating: 4.8 }
+      owner: { initials: 'JR', name: 'Juliet Ramos', rating: 4.8 }      // TODO: debe usar el usuario real al agregar un nuevo libro =======================================================================================================================================================================
     };
 
     try {
