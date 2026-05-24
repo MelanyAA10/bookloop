@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import './styles/globals.css';
 import { apiFetch } from './config/api';
+import { UserProvider } from './context/UserContext';
 
 import LoginPage       from './pages/LoginPage';
 import SignupPage      from './pages/SignupPage';
@@ -141,34 +142,39 @@ export default function App() {
 
   if (page === 'bookdetail') {
     return (
-      <BookDetailPage
-        onNavigate={navigate}
-        bookId={selectedBookId || 1}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
+      <UserProvider user={currentUser}>
+        <BookDetailPage
+          onNavigate={navigate}
+          bookId={selectedBookId || 1}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
+      </UserProvider>
     );
   }
 
   if (page === 'loanconfirm') {
     return (
-      <LoanConfirmPage
-        onNavigate={navigate}
-        bookId={selectedBookId}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
+      <UserProvider user={currentUser}>
+        <LoanConfirmPage
+          onNavigate={navigate}
+          bookId={selectedBookId}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
+      </UserProvider>
     );
   }
 
   // Todas las demás páginas autenticadas reciben las props de tema.
   const Page = PAGES[page] || DiscoveryPage;
   return (
-    <Page
-      onNavigate={navigate}
-      theme={theme}
-      onToggleTheme={toggleTheme}
-      user={currentUser}
-    />
+    <UserProvider user={currentUser}>
+      <Page
+        onNavigate={navigate}
+        theme={theme}
+        onToggleTheme={toggleTheme}        
+      />
+    </UserProvider>
   );
 }

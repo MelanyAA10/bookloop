@@ -1,18 +1,18 @@
 // src/components/Navbar.jsx - Versión responsive
 import React, { useState, useEffect } from 'react';
 import Logo from './Logo';
+import { useUser } from '../context/UserContext';
 
 export default function Navbar({
   activePage = 'discovery',
   onNavigate = () => {},
   theme = 'light',
-  onToggleTheme = () => {},
-  user = { initials: 'I', name: 'Invitado' },
+  onToggleTheme = () => {},  
 }) {
+  const user = useUser() || { initials: 'I', name: 'Invitado' };      // Invitado por defecto por si el contexto falla
   const isDark = theme === 'dark';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [userData, setUserData] = useState({ initials: 'I', name: 'Invitado' }); // Invitado si la API falla
 
   useEffect(() => {
     const handleResize = () => {
