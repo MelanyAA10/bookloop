@@ -1,6 +1,7 @@
 // src/App.jsx
 import React, { useState, useEffect } from 'react';
 import './styles/globals.css';
+import { apiFetch } from './config/api';
 
 import LoginPage       from './pages/LoginPage';
 import SignupPage      from './pages/SignupPage';
@@ -48,9 +49,29 @@ const getInitialTheme = () => {
 export default function App() {
   const [page, setPage] = useState('login');
   const [selectedBookId, setSelectedBookId] = useState(null);
+  const [currentUser, setCurrentUser] = useState({ initials: 'I', name: 'Invitado' });    // Invitado por defecto por si la API falla
 
   // El estado del tema se inicializa UNA sola vez leyendo localStorage.
   const [theme, setTheme] = useState(getInitialTheme);
+
+  /**
+   * Efecto para obtener los datos del usuario autenticado UNA sola vez
+   * al cargar o refrescar la aplicación.
+   */
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const res = await apiFetch('/profile');
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentUser({ initials: data.initials, name: data.name });
+        }
+      } catch (err) {
+        console.error('Error fetching current user:', err);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
 
   /**
    * Efecto de sincronización: cada vez que cambia `theme` o `page`,
@@ -147,6 +168,7 @@ export default function App() {
       onNavigate={navigate}
       theme={theme}
       onToggleTheme={toggleTheme}
+      user={currentUser}
     />
   );
 }

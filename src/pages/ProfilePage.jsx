@@ -27,7 +27,7 @@ const PULSE_STYLE = `@keyframes pulse {
   50%      { opacity: 0.45; }
 }`;
 
-export default function ProfilePage({ onNavigate = () => {}, theme, onToggleTheme }) {
+export default function ProfilePage({ onNavigate = () => {}, theme, onToggleTheme, user }) {
   // ── State ──────────────────────────────────────────────────────────────────
   const [profile,      setProfile]      = useState(null);
   const [reviews,      setReviews]      = useState([]);
@@ -349,6 +349,7 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
           onNavigate={onNavigate}
           theme={theme}
           onToggleTheme={onToggleTheme}
+          user={user}
         />
 
         <div style={s.body}>

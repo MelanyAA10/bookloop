@@ -1,13 +1,13 @@
 // src/components/Navbar.jsx - Versión responsive
 import React, { useState, useEffect } from 'react';
 import Logo from './Logo';
-import { apiFetch } from '../config/api';
 
 export default function Navbar({
   activePage = 'discovery',
   onNavigate = () => {},
   theme = 'light',
   onToggleTheme = () => {},
+  user = { initials: 'I', name: 'Invitado' },
 }) {
   const isDark = theme === 'dark';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -21,21 +21,6 @@ export default function Navbar({
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => {
-    async function loadNavbarUser() {
-      try {
-        const res = await apiFetch('/profile');
-        if (res.ok) {
-          const data = await res.json();
-          setUserData({ initials: data.initials, name: data.name });
-        }
-      } catch (err) {
-        console.error('Error cargando usuario en Navbar:', err);                
-      }
-    }
-    loadNavbarUser();
   }, []);
 
   const links = [
@@ -164,9 +149,9 @@ export default function Navbar({
         <button
           style={styles.avatar}
           onClick={() => onNavigate('profile')}
-          title={userData.name}
+          title={user.name}
         >
-          {userData.initials}
+          {user.initials}
         </button>
       </div>
     </nav>
