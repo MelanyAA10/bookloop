@@ -1,17 +1,18 @@
 // src/components/Navbar.jsx - Versión responsive
 import React, { useState, useEffect } from 'react';
 import Logo from './Logo';
+import { apiFetch } from '../config/api';
 
 export default function Navbar({
   activePage = 'discovery',
   onNavigate = () => {},
-  user = { initials: 'I', name: 'Invitado' },    
   theme = 'light',
   onToggleTheme = () => {},
 }) {
   const isDark = theme === 'dark';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [userData, setUserData] = useState({ initials: 'I', name: 'Invitado' }); // Invitado si la API falla
 
   useEffect(() => {
     const handleResize = () => {
@@ -20,6 +21,21 @@ export default function Navbar({
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    async function loadNavbarUser() {
+      try {
+        const res = await apiFetch('/profile');
+        if (res.ok) {
+          const data = await res.json();
+          setUserData({ initials: data.initials, name: data.name });
+        }
+      } catch (err) {
+        console.error('Error cargando usuario en Navbar:', err);                
+      }
+    }
+    loadNavbarUser();
   }, []);
 
   const links = [
@@ -148,9 +164,9 @@ export default function Navbar({
         <button
           style={styles.avatar}
           onClick={() => onNavigate('profile')}
-          title={user.name}
+          title={userData.name}
         >
-          {user.initials}
+          {userData.initials}
         </button>
       </div>
     </nav>
