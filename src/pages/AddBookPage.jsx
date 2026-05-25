@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Button, Input, Textarea, Divider } from '../components/UI';
 import { apiFetch } from '../config/api';
-import { UserContext } from '../context/UserContext';
+import { useUser } from '../context/UserContext';
 
 const CONDITIONS = ['Excellent', 'Good', 'Fair'];
 const PHOTO_LABELS = ['Front', 'Back', 'Spine', 'Interior'];
@@ -50,7 +50,7 @@ async function uploadToCloudinary(file) {
 }
 
 export default function AddBookPage({ onNavigate = () => {}, theme, onToggleTheme }) {
-  const user = useContext(UserContext);
+  const user = useUser();
   const [form, setForm] = useState({
     title: '', author: '', genre: '', language: '', description: '', loanDays: '14',
     year: new Date().getFullYear(), pages: '', color: '#7A3728', condition: 'Good'
