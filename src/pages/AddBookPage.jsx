@@ -2,7 +2,7 @@
 // src/pages/AddBookPage.jsx
 import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
-import { Button, Input, Textarea, Divider, ImageUploadMock } from '../components/UI';
+import { Button, Input, Textarea, Divider } from '../components/UI';
 import { apiFetch } from '../config/api';
 
 const CONDITIONS = ['Excellent', 'Good', 'Fair'];
@@ -25,6 +25,29 @@ function validatePages(val) {
   return '';
 }
 
+/**
+ * Sube un archivo a Cloudinary y retorna la URL pública.
+ */
+async function uploadToCloudinary(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', 'bookloop_preset');
+
+  try {
+    const response = await fetch('https://api.cloudinary.com/v1_1/dkjzvjeln/image/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error('Cloudinary upload failed');
+    const data = await response.json();
+    return data.secure_url;
+  } catch (error) {
+    console.error('Error uploading to Cloudinary:', error);
+    throw error;
+  }
+}
+
 export default function AddBookPage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [form, setForm] = useState({
     title: '', author: '', genre: '', language: '', description: '', loanDays: '14',
@@ -38,6 +61,8 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [fieldErrors, setFieldErrors] = useState({ year: '', pages: '' });
   const [fieldTouched, setFieldTouched] = useState({ year: false, pages: false });
+  const [imageError, setImageError] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(null); // null, 0, 1, 2, 3 (índice de imagen)
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -60,9 +85,28 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
     }));
   };
 
-  const handleImageChange = (index, url) => {
-    setImages(prev => prev.map((v, i) => i === index ? url : v));
-    if (index === 0) setCoverImgError(false);
+  const handleImageSelect = async (index, file) => {
+  if (!file) return;
+
+  // Validar formato de imagen 
+  const validFormats = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (!validFormats.includes(file.type)) {
+      setImageError('Formato no válido. Por favor, sube solo imágenes en formato .jpg, .jpeg o .png');
+      return;
+    }
+
+    setImageError('');
+    setUploadingImage(index);
+
+    try {
+      const url = await uploadToCloudinary(file);
+      setImages(prev => prev.map((v, i) => i === index ? url : v));
+      if (index === 0) setCoverImgError(false);
+    } catch (error) {
+      setImageError('Error al subir la imagen. Intenta de nuevo.');
+    } finally {
+      setUploadingImage(null);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -93,8 +137,11 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
       synopsis: form.description,
       images: images.filter(Boolean),
       cover_url: images[0] || '',
-      owner: { initials: 'JR', name: 'Juliet Ramos', rating: 4.8 }      // TODO: debe usar el usuario real al agregar un nuevo libro =======================================================================================================================================================================
+      owner: { initials: 'JR', name: 'Juliet Ramos', rating: 4.8 }      // TODO: usar useUser() del Context =======================================================================================================================================================================
     };
+
+    // DEBUG: Imprime el JSON del libro para validar URLs
+    console.log(' Libro a enviar:', JSON.stringify(bookData, null, 2));
 
     try {
       const response = await apiFetch('/books', {
@@ -137,20 +184,28 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
 
             <div style={isMobile ? s.layoutMobile : s.layout}>
               <div style={s.coverZone}>
-                <div style={{ ...s.coverUpload, padding: showCoverImage ? 0 : undefined, overflow: 'hidden' }}>
-                  {showCoverImage ? (
-                    <img
-                      src={coverUrl}
-                      alt="Cover preview"
-                      onError={() => setCoverImgError(true)}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 7 }}
-                    />
-                  ) : (
-                    <>
+                <label style={{ cursor: 'pointer', display: 'block' }}>
+                  <div style={{ ...s.coverUpload, padding: showCoverImage ? 0 : undefined, overflow: 'hidden' }}>
+                    {uploadingImage === 0 ? (
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Uploading...</span>
+                    ) : showCoverImage ? (
+                      <img
+                        src={coverUrl}
+                        alt="Cover preview"
+                        onError={() => setCoverImgError(true)}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 7 }}
+                      />
+                    ) : (
                       <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Cover Preview</span>
-                    </>
-                  )}
-                </div>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept=".jpg, .jpeg, .png"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleImageSelect(0, e.target.files?.[0])}
+                  />
+                </label>
               </div>
 
               <div style={s.fields}>
@@ -201,14 +256,34 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
             <p style={s.sectionLabel}>Condition Photos</p>
             <div style={isMobile ? s.photoGridMobile : s.photoGrid}>
               {PHOTO_LABELS.map((label, i) => (
-                <ImageUploadMock
-                  key={label}
-                  label={label}
-                  value={images[i]}
-                  onChange={url => handleImageChange(i, url)}
-                />
+                <label key={label} style={{ cursor: 'pointer', display: 'block' }}>
+                  <div style={{
+                    ...s.photoBox,
+                    background: images[i] ? `url(${images[i]}) center/cover` : 'var(--bg-surface)',
+                    border: '1.5px solid var(--border)',
+                    borderRadius: 6,
+                    height: 100,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                  }}>
+                    {uploadingImage === i ? (
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Uploading...</span>
+                    ) : !images[i] ? (
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>
+                    ) : null}
+                  </div>
+                  <input
+                    type="file"
+                    accept=".jpg, .jpeg, .png"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleImageSelect(i, e.target.files?.[0])}
+                  />
+                </label>
               ))}
             </div>
+            {imageError && <div style={s.errorImageMsg}>{imageError}</div>}
 
             <Divider />
 
@@ -309,5 +384,11 @@ const s = {
     borderRadius: 8,
     fontSize: 13,
     marginBottom: 10,
+  },
+  errorImageMsg: {
+    color: '#DC2626',
+    fontSize: 12,
+    marginTop: 8,
+    fontWeight: 500,
   },
 };
