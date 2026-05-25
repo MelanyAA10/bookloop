@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Button, Input, Textarea, Divider } from '../components/UI';
 import { apiFetch } from '../config/api';
+import { UserContext } from '../context/UserContext';
 
 const CONDITIONS = ['Excellent', 'Good', 'Fair'];
 const PHOTO_LABELS = ['Front', 'Back', 'Spine', 'Interior'];
@@ -49,6 +50,7 @@ async function uploadToCloudinary(file) {
 }
 
 export default function AddBookPage({ onNavigate = () => {}, theme, onToggleTheme }) {
+  const user = useContext(UserContext);
   const [form, setForm] = useState({
     title: '', author: '', genre: '', language: '', description: '', loanDays: '14',
     year: new Date().getFullYear(), pages: '', color: '#7A3728', condition: 'Good'
@@ -137,7 +139,11 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
       synopsis: form.description,
       images: images.filter(Boolean),
       cover_url: images[0] || '',
-      owner: { initials: 'JR', name: 'Juliet Ramos', rating: 4.8 }      // TODO: usar useUser() del Context =======================================================================================================================================================================
+      owner: {
+        initials: user?.initials || 'I',          // Usa 'I' de Invitado si no hay usuario
+        name: user?.name || 'Invitado',
+        rating: user?.rating || 5.0
+      }
     };
 
     // DEBUG: Imprime el JSON del libro para validar URLs
