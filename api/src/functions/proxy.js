@@ -5,8 +5,8 @@ app.http('proxy', {
   authLevel: 'anonymous',
   route: 'proxy/{*route}',
   handler: async (request, context) => {
-    const APIM_URL = process.env.APIM_URL;
-    const APIM_KEY = process.env.APIM_SUBSCRIPTION_KEY;
+    const APIM_URL = process.env.VITE_API_URL;
+    const APIM_KEY = process.env.VITE_API_KEY ;
 
     if (!APIM_URL || !APIM_KEY) {
       return { status: 500, jsonBody: { error: 'Faltan variables de entorno.' } };
