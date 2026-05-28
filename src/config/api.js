@@ -1,4 +1,4 @@
-const API_URL = '/api';
+const API_URL = '/api/proxy';
 
 export const apiFetch = async (endpoint, options = {}) => {
   const response = await fetch(`${API_URL}${endpoint}`, {

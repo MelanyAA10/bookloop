@@ -3,7 +3,7 @@ const { app } = require('@azure/functions');
 app.http('proxy', {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   authLevel: 'anonymous',
-  route: 'proxy/{*route}',
+  route: '{*route}',
   handler: async (request, context) => {
     const APIM_URL = process.env.VITE_API_URL;
     const APIM_KEY = process.env.VITE_API_KEY ;
