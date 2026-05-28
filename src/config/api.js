@@ -16,6 +16,10 @@ export const getBookImageUrl = (book) => {
   if (book?.isbn) return `https://covers.openlibrary.org/b/isbn/${book.isbn}-M.jpg`;
   return null;
 };
+
+
+
+
 /**
  * Returns the primary image URL for a book.
  * Fase 2: swap this function to upload the file to Azure Blob Storage
