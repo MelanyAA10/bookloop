@@ -1,5 +1,8 @@
 {
   "name": "bookloop-api-proxy",
   "version": "1.0.0",
-  "dependencies": {}
+  "main": "src/functions/proxy.js",
+  "dependencies": {
+    "@azure/functions": "^4.0.0"
+  }
 }
