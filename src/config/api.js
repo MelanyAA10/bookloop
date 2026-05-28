@@ -1,13 +1,22 @@
-const API_URL = import.meta.env.VITE_API_URL || '';
-const API_KEY = import.meta.env.VITE_API_KEY || '';
-
-export const apiFetch = async (endpoint, options = {}) => {
-  const url = `${API_URL}${endpoint}?subscription-key=${API_KEY}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers }
-  });
-  return response;
+export const fetchProducts = async () => {
+    try {
+        const response = await fetch(process.env.REACT_APP_API_URL, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                "Ocp-Apim-Subscription-Key": process.env.REACT_APP_API_KEY,
+                "Accept": "application/json"
+            }
+        });
+        if (!response.ok) {
+            throw new Error('Error fetching products');
+        }
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
 };
 
 export const getBookImageUrl = (book) => {
