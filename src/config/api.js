@@ -1,11 +1,14 @@
-const API_URL = import.meta.env.VITE_API_URL || '';
-const API_KEY = import.meta.env.VITE_API_KEY || '';
+// src/config/api.js
+// El frontend ya no conoce la API key ni la URL de Azure.
+// Todas las llamadas van a /api que Azure SWA enruta a la Function proxy.
+
+const API_BASE = '/api';
 
 export const apiFetch = async (endpoint, options = {}) => {
-  const url = `${API_URL}${endpoint}?subscription-key=${API_KEY}`;
+  const url = `${API_BASE}${endpoint}`;
   const response = await fetch(url, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers }
+    headers: { 'Content-Type': 'application/json', ...options.headers },
   });
   return response;
 };
