@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // src/config/api.js
 
 const IS_DEV = import.meta.env.DEV;
@@ -19,6 +20,27 @@ export const apiFetch = async (endpoint, options = {}) => {
     headers: { 'Content-Type': 'application/json', ...options.headers }
   });
   return response;
+=======
+export const fetchProducts = async () => {
+    try {
+        const response = await fetch(process.env.REACT_APP_API_URL, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                "Ocp-Apim-Subscription-Key": process.env.REACT_APP_API_KEY,
+                "Accept": "application/json"
+            }
+        });
+        if (!response.ok) {
+            throw new Error('Error fetching products');
+        }
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
+>>>>>>> parent of 7654e75 (....)
 };
 
 export const getBookImageUrl = (book) => {
