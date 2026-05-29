@@ -1,8 +1,9 @@
-const API_URL = import.meta.env.VITE_API_URL || '';
-const API_KEY = import.meta.env.VITE_API_KEY || '';
+// En dev Vite corre en :3000 y SWA CLI en :4280 — /api queda en el mismo origen
+// En prod Azure SWA rutea /api/* a las Functions automáticamente
+API_BASE = '/api'
 
 export const apiFetch = async (endpoint, options = {}) => {
-  const url = `${API_URL}${endpoint}?subscription-key=${API_KEY}`;
+  const url = `${API_BASE}${endpoint}`;   // sin key — la agrega la Function
   const response = await fetch(url, {
     ...options,
     headers: { 'Content-Type': 'application/json', ...options.headers }
@@ -16,18 +17,3 @@ export const getBookImageUrl = (book) => {
   if (book?.isbn) return `https://covers.openlibrary.org/b/isbn/${book.isbn}-M.jpg`;
   return null;
 };
-
-
-
-
-/**
- * Returns the primary image URL for a book.
- * Fase 2: swap this function to upload the file to Azure Blob Storage
- * and return the real URL — the rest of the app stays unchanged.
- */
-/* export const getBookImageUrl = (book) => {
-  if (book?.images?.length > 0 && book.images[0]) return book.images[0];
-  if (book?.cover_url) return book.cover_url;
-  return null;
-}; */
-//build check
