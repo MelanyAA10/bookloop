@@ -1,0 +1,17 @@
+{
+  "routes": [
+    {
+      "route": "/api/*",
+      "allowedRoles": ["anonymous"]
+    }
+  ],
+  "forwardingGateway": {
+    "requiredHeaders": {
+      "X-Forwarded-Host": "bookloop.azurestaticapps.net"
+    }
+  },
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/api/*", "/assets/*"]
+  }
+}
