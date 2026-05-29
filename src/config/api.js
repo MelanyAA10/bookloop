@@ -1,6 +1,5 @@
-// En dev Vite corre en :3000 y SWA CLI en :4280 — /api queda en el mismo origen
-// En prod Azure SWA rutea /api/* a las Functions automáticamente
-API_BASE = '/api'
+
+const API_BASE = '/api'
 
 export const apiFetch = async (endpoint, options = {}) => {
   const url = `${API_BASE}${endpoint}`;   // sin key — la agrega la Function
