@@ -33,7 +33,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const fetchPosts = async (page = 1) => {
     setLoading(true);
     try {
-      const response = await apiFetch(`/community/posts/${page}/${pageSize}`);
+      const response = await apiFetch(`/posts/${page}/${pageSize}`);
       const data = await response.json();
       // Normalizar campos de la API al formato que usa el componente
       const normalized = (data.content || []).map(p => ({
@@ -74,7 +74,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
     setSubmitting(true);
     try {
-      const response = await apiFetch('/community/posts', {
+      const response = await apiFetch('/posts', {
         method: 'POST',
         body: JSON.stringify({ title: newPost.title, body: newPost.body, tag: newPost.tag }),
       });
