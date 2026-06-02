@@ -107,9 +107,7 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
     // sin necesidad de fetch ni skeleton de carga.
     if (!user) return null;
 
-    // university: el backend aún no lo devuelve; fallback temporal hasta que
-    // el microservicio lo incluya en la respuesta de login.
-    const university = user.university || 'Instituto Tecnológico de Costa Rica';
+    const university = user?.university || 'Not specified';
 
     // rating: si el backend lo envía lo usamos; de lo contrario mostramos '—'
     const rating = user.rating ?? '—';

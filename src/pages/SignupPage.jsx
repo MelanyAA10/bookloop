@@ -100,7 +100,7 @@ export default function SignupPage({ onSignup = () => {}, onLogin = () => {} }) 
         body: JSON.stringify({
           name: form.name,
           email: form.email,
-          university: form.university || 'Not specified',
+          university: form.university,
           password: form.password
         })
       });
