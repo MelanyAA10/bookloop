@@ -35,9 +35,19 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     try {
       const response = await apiFetch(`/community/posts/${page}/${pageSize}`);
       const data = await response.json();
-      setPosts(data.data || []);
-      setTotalPages(data.totalPages || 1);
-      setCurrentPage(page);
+      // Normalizar campos de la API al formato que usa el componente
+      const normalized = (data.content || []).map(p => ({
+        ...p,
+        name: p.author,
+        body: p.content,
+        tag: p.category,
+        time: new Date(p.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }),
+        initials: p.author ? p.author.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?',
+        likes: p.likes ?? 0,
+        comments: p.comments_count ?? 0,
+      }));
+      setPosts(normalized);
+      setTotalPages(data.total_pages || 1);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
@@ -53,6 +63,23 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       setTrendingBooks(booksList.slice(0, 3));
     } catch (error) {
       console.error('Error fetching trending books:', error);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await apiFetch('/community/stats');
+      const data = await response.json();
+      setStats(data);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      // Datos de ejemplo si la API falla
+      setStats({
+        'Books': '2,400+',
+        'Readers': '180+',
+        'Returns': '98%',
+        'Rating': '4.7★'
+      });
     }
   };
 
