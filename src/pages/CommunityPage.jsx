@@ -31,7 +31,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const fetchPosts = async (page = 1) => {
     setLoading(true);
     try {
-      const response = await apiFetch(`/community/posts/${page}/${pageSize}`);
+      const response = await apiFetch(`/posts/${page}/${pageSize}`);
       const data = await response.json();
       const normalized = (data.content || []).map(p => ({
         ...p,
