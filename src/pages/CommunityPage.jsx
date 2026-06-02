@@ -66,22 +66,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      const response = await apiFetch('/community/stats');
-      const data = await response.json();
-      setStats(data);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-      // Datos de ejemplo si la API falla
-      setStats({
-        'Books': '2,400+',
-        'Readers': '180+',
-        'Returns': '98%',
-        'Rating': '4.7★'
-      });
-    }
-  };
 
   const handleNewPost = async () => {
     if (!newPost.title.trim() || !newPost.body.trim()) {
