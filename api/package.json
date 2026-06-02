@@ -1,0 +1,6 @@
+{
+  "name": "bookloop-api-proxy",
+  "version": "1.0.0",
+  "description": "Azure Functions proxy para Bookloop",
+  "dependencies": {}
+}

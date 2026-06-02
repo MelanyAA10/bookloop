@@ -1,20 +1,15 @@
-const API_URL = import.meta.env.VITE_API_URL || '';
-const API_KEY = import.meta.env.VITE_API_KEY || '';
+// src/config/api.js
+// El frontend ya no conoce la API key ni la URL de Azure.
+// Todas las llamadas van a /api que Azure SWA enruta a la Function proxy.
+
+const API_BASE = '/api';
 
 export const apiFetch = async (endpoint, options = {}) => {
-  const url = `${API_URL}${endpoint}`;
-  
-  const headers = {
-    'Content-Type': 'application/json',
-    'Ocp-Apim-Subscription-Key': API_KEY,
-    ...options.headers
-  };
-
+  const url = `${API_BASE}${endpoint}`;
   const response = await fetch(url, {
     ...options,
-    headers
+    headers: { 'Content-Type': 'application/json', ...options.headers },
   });
-
   return response;
 };
 
@@ -24,14 +19,3 @@ export const getBookImageUrl = (book) => {
   if (book?.isbn) return `https://covers.openlibrary.org/b/isbn/${book.isbn}-M.jpg`;
   return null;
 };
-/**
- * Returns the primary image URL for a book.
- * Fase 2: swap this function to upload the file to Azure Blob Storage
- * and return the real URL — the rest of the app stays unchanged.
- */
-/* export const getBookImageUrl = (book) => {
-  if (book?.images?.length > 0 && book.images[0]) return book.images[0];
-  if (book?.cover_url) return book.cover_url;
-  return null;
-}; */
-//build check
