@@ -13,6 +13,9 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [trendingBooks, setTrendingBooks] = useState([]);
   const [stats, setStats] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const pageSize = 10;
   const isDark = theme === 'dark';
 
   useEffect(() => {
@@ -22,17 +25,19 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   }, []);
 
   useEffect(() => {
-    fetchPosts();
+    fetchPosts(currentPage);
     fetchTrending();
     fetchStats();
-  }, []);
+  }, [currentPage]);
 
-  const fetchPosts = async () => {
+  const fetchPosts = async (page = 1) => {
     setLoading(true);
     try {
-      const response = await apiFetch('/community/posts');
+      const response = await apiFetch(`/community/posts/${page}/${pageSize}`);
       const data = await response.json();
       setPosts(data.data || []);
+      setTotalPages(data.totalPages || 1);
+      setCurrentPage(page);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
@@ -48,23 +53,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       setTrendingBooks(booksList.slice(0, 3));
     } catch (error) {
       console.error('Error fetching trending books:', error);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const response = await apiFetch('/community/stats');
-      const data = await response.json();
-      setStats(data);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-      // Datos de ejemplo si la API falla
-      setStats({
-        'Books': '2,400+',
-        'Readers': '180+',
-        'Returns': '98%',
-        'Rating': '4.7★'
-      });
     }
   };
 
@@ -180,6 +168,28 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                 </div>
               </div>
             ))}
+
+            {!loading && totalPages > 1 && (
+              <div style={s.pagination}>
+                <button
+                  style={{ ...s.pageBtn, opacity: currentPage === 1 ? 0.4 : 1 }}
+                  onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  ← Anterior
+                </button>
+                <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  style={{ ...s.pageBtn, opacity: currentPage === totalPages ? 0.4 : 1 }}
+                  onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  Siguiente →
+                </button>
+              </div>
+            )}
           </div>
 
           {!isMobile && (
@@ -307,6 +317,18 @@ const s = {
   trendTitle: { fontSize: 12, fontWeight: 500, marginBottom: 2, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   trendAuthor: { fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   mobileTrending: { margin: '20px 16px 0', padding: 16, border: '1px solid', borderRadius: 10 },
+  pagination: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 20, marginBottom: 8 },
+  pageBtn: {
+    border: 'none',
+    borderRadius: 16,
+    padding: '7px 16px',
+    fontSize: 12,
+    cursor: 'pointer',
+    fontFamily: "'DM Sans', sans-serif",
+    fontWeight: 500,
+    background: 'var(--bg-surface)',
+    color: 'var(--text-secondary)',
+  },
   modalOverlay: {
     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
     background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16,
