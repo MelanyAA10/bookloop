@@ -11,11 +11,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [newPost, setNewPost] = useState({ title: '', body: '', tag: 'Reviews' });
   const [submitting, setSubmitting] = useState(false);
   const [trendingBooks, setTrendingBooks] = useState([]);
-    'Books': '2,400+',
-    'Readers': '180+',
-    'Returns': '98%',
-    'Rating': '4.7★'
-  });
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
