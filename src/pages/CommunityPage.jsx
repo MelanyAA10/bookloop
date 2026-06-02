@@ -70,7 +70,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
     setSubmitting(true);
     try {
-      const response = await apiFetch('/community/posts', {
+      const response = await apiFetch('/posts', {
         method: 'POST',
         body: JSON.stringify({ title: newPost.title, body: newPost.body, tag: newPost.tag }),
       });
