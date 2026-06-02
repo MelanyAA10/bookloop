@@ -11,7 +11,11 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [newPost, setNewPost] = useState({ title: '', body: '', tag: 'Reviews' });
   const [submitting, setSubmitting] = useState(false);
   const [trendingBooks, setTrendingBooks] = useState([]);
-  const [stats, setStats] = useState(null);
+    'Books': '2,400+',
+    'Readers': '180+',
+    'Returns': '98%',
+    'Rating': '4.7★'
+  });
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -27,7 +31,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   useEffect(() => {
     fetchPosts(currentPage);
     fetchTrending();
-    fetchStats();
   }, [currentPage]);
 
   const fetchPosts = async (page = 1) => {
@@ -35,7 +38,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     try {
       const response = await apiFetch(`/community/posts/${page}/${pageSize}`);
       const data = await response.json();
-      // Normalizar campos de la API al formato que usa el componente
       const normalized = (data.content || []).map(p => ({
         ...p,
         name: p.author,
@@ -65,7 +67,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       console.error('Error fetching trending books:', error);
     }
   };
-
 
   const handleNewPost = async () => {
     if (!newPost.title.trim() || !newPost.body.trim()) {
@@ -205,24 +206,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
 
           {!isMobile && (
             <div style={s.sidebar}>
-              {stats && (
-                <Card style={{ 
-                  marginBottom: 16, 
-                  background: 'var(--bg-secondary)', 
-                  borderColor: 'var(--border-light)' 
-                }}>
-                  <SectionLabel>Community Stats</SectionLabel>
-                  <div style={s.statsGrid}>
-                    {Object.entries(stats).map(([label, number]) => (
-                      <div key={label} style={s.statItem}>
-                        <span style={{ ...s.statNum, color: 'var(--crimson-light)' }}>{number}</span>
-                        <span style={{ ...s.statLabel, color: 'var(--text-muted)' }}>{label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              )}
-
               {trendingBooks.length > 0 && (
                 <Card style={{ 
                   background: 'var(--bg-secondary)', 
@@ -256,7 +239,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
         </div>
       </div>
 
-      {/* Versión móvil de Trending Books */}
       {isMobile && trendingBooks.length > 0 && (
         <div style={{ ...s.mobileTrending, background: 'var(--bg-secondary)', borderColor: 'var(--border-light)', marginTop: 20 }}>
           <SectionLabel>Trending Books</SectionLabel>
@@ -319,10 +301,6 @@ const s = {
   emptyTitle: { fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600, margin: 0 },
   emptySubtitle: { fontSize: 13, margin: 0 },
   sidebar: {},
-  statsGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
-  statItem: { textAlign: 'center' },
-  statNum: { display: 'block', fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 600 },
-  statLabel: { display: 'block', fontSize: 10, marginTop: 2 },
   trendItem: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, cursor: 'pointer' },
   trendInfo: { flex: 1, minWidth: 0 },
   trendTitle: { fontSize: 12, fontWeight: 500, marginBottom: 2, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
