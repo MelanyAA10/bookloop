@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Badge, Stars, BookCover, Card, SectionLabel, Button } from '../components/UI';
 import { apiFetch, getBookImageUrl } from '../config/api';
+import { useUser } from '../context/UserContext';
 
 // ─── Skeleton helpers ────────────────────────────────────────────────────────
 function SkeletonBox({ width = '100%', height = 16, radius = 6, style }) {
@@ -27,17 +28,22 @@ const PULSE_STYLE = `@keyframes pulse {
   50%      { opacity: 0.45; }
 }`;
 
-export default function ProfilePage({ onNavigate = () => {}, theme, onToggleTheme, user }) {
-  // ── State ──────────────────────────────────────────────────────────────────
-  const [profile,      setProfile]      = useState(null);
-  const [reviews,      setReviews]      = useState([]);
-  const [userBooks,    setUserBooks]    = useState([]);
+export default function ProfilePage({ onNavigate = () => {}, theme, onToggleTheme, profileId = null }) {
+  // ── Datos del usuario autenticado — leídos del contexto, sin fetch ─────────
+  const { user, logout } = useUser();
 
-  const [loadingProfile, setLoadingProfile] = useState(true);
+  // true  → perfil propio   → mostrar Sign Out
+  // false → perfil ajeno    → mostrar Message
+  const isOwnProfile = !profileId || profileId === user?.id;
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [reviews,     setReviews]     = useState([]);
+  const [userBooks,   setUserBooks]   = useState([]);
+  const [showConfirm, setShowConfirm] = useState(false); 
+
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [loadingBooks,   setLoadingBooks]   = useState(true);
 
-  const [errorProfile, setErrorProfile] = useState(null);
   const [errorReviews, setErrorReviews] = useState(null);
   const [errorBooks,   setErrorBooks]   = useState(null);
 
@@ -50,26 +56,8 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => { fetchProfile(); }, []);
   useEffect(() => { fetchReviews(); }, []);
   useEffect(() => { fetchBooks();   }, []);
-
-  // ── Fetch: profile ─────────────────────────────────────────────────────────
-  const fetchProfile = async () => {
-    setLoadingProfile(true);
-    setErrorProfile(null);
-    try {
-      const res = await apiFetch('/profile');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setProfile(data);
-    } catch (err) {
-      console.error('Error fetching profile:', err);
-      setErrorProfile('Could not load profile information.');
-    } finally {
-      setLoadingProfile(false);
-    }
-  };
 
   // ── Fetch: profile reviews ─────────────────────────────────────────────────
   const fetchReviews = async () => {
@@ -97,9 +85,6 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const all = Array.isArray(data) ? data : data?.data ?? [];
-      // Filter to books owned by the current user once profile arrives.
-      // We keep full list in state and filter at render time so that if
-      // profile loads after books there is no stale mismatch.
       setUserBooks(all);
     } catch (err) {
       console.error('Error fetching books:', err);
@@ -109,83 +94,96 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
     }
   };
 
-  // ── Derived: books belonging to this user ──────────────────────────────────
-  const ownedBooks = profile
+  const ownedBooks = user
     ? userBooks.filter(
-        b => b.owner?.initials === profile.initials ||
-             b.owner?.name     === profile.name
+        b => b.owner?.name === user.name ||
+             b.owner?.id   === user.id
       )
     : [];
 
   // ── Render helpers ─────────────────────────────────────────────────────────
   const renderProfileCard = () => {
-    if (loadingProfile) {
-      return (
-        <Card style={{ textAlign: 'center', marginBottom: 16, background: 'var(--bg-secondary)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            {/* Avatar skeleton */}
-            <SkeletonBox width={90} height={90} radius={45} />
-            <SkeletonBox width={140} height={18} />
-            <SkeletonBox width={100} height={12} />
-            <div style={{ display: 'flex', gap: 24, marginTop: 4 }}>
-              {[0,1,2].map(i => (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <SkeletonBox width={36} height={22} />
-                  <SkeletonBox width={36} height={10} />
-                </div>
-              ))}
-            </div>
-            <SkeletonBox height={36} radius={6} style={{ marginTop: 4 }} />
-          </div>
-        </Card>
-      );
-    }
+    // Los datos básicos vienen del contexto — disponibles de forma inmediata,
+    // sin necesidad de fetch ni skeleton de carga.
+    if (!user) return null;
 
-    if (errorProfile) {
-      return (
-        <Card style={{ marginBottom: 16, background: 'var(--bg-secondary)' }}>
-          <p style={s.errorText}>{errorProfile}</p>
-          <button style={s.retryBtn} onClick={fetchProfile}>Retry</button>
-        </Card>
-      );
-    }
+    // university: el backend aún no lo devuelve; fallback temporal hasta que
+    // el microservicio lo incluya en la respuesta de login.
+    const university = user.university || 'Instituto Tecnológico de Costa Rica';
 
-    if (!profile) return null;
+    // rating: si el backend lo envía lo usamos; de lo contrario mostramos '—'
+    const rating = user.rating ?? '—';
+
+    // totalBooks se deriva de los libros que ya cargamos del catálogo.
+    // Mientras cargan mostramos '…' para no mostrar 0 prematuramente.
+    const totalBooks = loadingBooks ? '…' : ownedBooks.length;
 
     return (
       <Card style={{ textAlign: 'center', marginBottom: 16, background: 'var(--bg-secondary)' }}>
         <div style={s.avatar}>
           <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: '#fff' }}>
-            {profile.initials}
+            {user.initials ?? user.name?.charAt(0).toUpperCase() ?? '?'}
           </span>
         </div>
-        <h2 style={s.userName}>{profile.name}</h2>
-        <p style={s.userMeta}>{profile.handle} · {profile.university}</p>
+        <h2 style={s.userName}>{user.name}</h2>
+        <p style={s.userMeta}>{university}</p>
 
         <div style={s.statsRow}>
           <div style={s.stat}>
-            <span style={{ ...s.statNum, color: 'var(--crimson-light)' }}>{profile.rating}</span>
+            <span style={{ ...s.statNum, color: 'var(--crimson-light)' }}>{rating}</span>
             <span style={s.statLabel}>Rating</span>
           </div>
           <div style={s.stat}>
-            <span style={{ ...s.statNum, color: 'var(--text-primary)' }}>{profile.totalBooks}</span>
+            <span style={{ ...s.statNum, color: 'var(--text-primary)' }}>{totalBooks}</span>
             <span style={s.statLabel}>Books</span>
-          </div>
-          <div style={s.stat}>
-            <span style={{ ...s.statNum, color: 'var(--text-primary)' }}>{profile.activeLoans}</span>
-            <span style={s.statLabel}>Loans</span>
           </div>
         </div>
 
-        <Button variant="full" style={{ marginTop: 4 }} onClick={() => onNavigate('messages')}>
-          Message
-        </Button>
+        {/* ── Botón principal: depende de si es perfil propio o ajeno ─────── */}
+        {isOwnProfile ? (
+          /* Perfil propio → Sign Out con confirmación anti-misclick */
+          !showConfirm ? (
+            <button
+              style={s.signOutBtn}
+              onClick={() => setShowConfirm(true)}
+            >
+              Sign Out
+            </button>
+          ) : (
+            <div style={s.confirmRow}>
+              <span style={s.confirmLabel}>Are you sure?</span>
+              <div style={s.confirmBtns}>
+                <button
+                  style={s.confirmYes}
+                  onClick={() => {
+                    logout();
+                    // App.jsx tiene el guard useEffect([user]) que redirige
+                    // a login cuando user pasa a null.
+                  }}
+                >
+                  Yes, sign out
+                </button>
+                <button
+                  style={s.confirmCancel}
+                  onClick={() => setShowConfirm(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )
+        ) : (
+          /* Perfil ajeno → Message */
+          <Button variant="full" style={{ marginTop: 4 }} onClick={() => onNavigate('messages')}>
+            Message
+          </Button>
+        )}
       </Card>
     );
   };
 
   const renderBooksPanel = () => {
-    if (loadingBooks || loadingProfile) {
+    if (loadingBooks) {
       return (
         <div style={s.panelBox}>
           <SectionLabel>Available for Loan</SectionLabel>
@@ -349,7 +347,6 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
           onNavigate={onNavigate}
           theme={theme}
           onToggleTheme={onToggleTheme}
-          user={user}
         />
 
         <div style={s.body}>
@@ -484,6 +481,65 @@ const s = {
     padding: '6px 14px',
     borderRadius: 6,
     fontSize: 12,
+    fontFamily: "'DM Sans', sans-serif",
+    cursor: 'pointer',
+  },
+
+  // ── Logout ─────────────────────────────────────────────────────────────────
+  signOutBtn: {
+    width: '100%',
+    marginTop: 8,
+    padding: '9px 0',
+    borderRadius: 8,
+    border: '1.5px solid #EF4444',
+    background: 'transparent',
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: 600,
+    fontFamily: "'DM Sans', sans-serif",
+    cursor: 'pointer',
+    transition: 'background 0.18s, color 0.18s',
+    // Hover se maneja inline porque los style-objects no soportan :hover
+    // — el usuario puede añadir onMouseEnter/Leave si lo desea.
+  },
+  confirmRow: {
+    marginTop: 10,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 8,
+  },
+  confirmLabel: {
+    fontSize: 12,
+    color: 'var(--text-muted)',
+    fontStyle: 'italic',
+  },
+  confirmBtns: {
+    display: 'flex',
+    gap: 8,
+    width: '100%',
+  },
+  confirmYes: {
+    flex: 1,
+    padding: '8px 0',
+    borderRadius: 8,
+    border: 'none',
+    background: '#EF4444',
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 600,
+    fontFamily: "'DM Sans', sans-serif",
+    cursor: 'pointer',
+  },
+  confirmCancel: {
+    flex: 1,
+    padding: '8px 0',
+    borderRadius: 8,
+    border: '1.5px solid var(--border-light)',
+    background: 'transparent',
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 500,
     fontFamily: "'DM Sans', sans-serif",
     cursor: 'pointer',
   },

@@ -1,21 +1,130 @@
-// src/pages/SignupPage.jsx - Responsive version
 import React, { useState, useEffect } from 'react';
 import Logo from '../components/Logo';
 import { Button, Input } from '../components/UI';
+import { apiFetch } from '../config/api';
+import { useUser } from '../context/UserContext';
+
+function validateName(val) {
+  if (!val.trim()) return 'Full name is required';
+  if (val.trim().length < 3) return 'Name must be at least 3 characters';
+  return '';
+}
+
+function validateEmail(val) {
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!val.trim()) return 'Email is required';
+  if (!EMAIL_RE.test(val)) return 'Enter a valid email address';
+  return '';
+}
+
+function validatePassword(val) {
+  if (!val) return 'Password is required';
+  if (val.length < 8) return 'Password must be at least 8 characters';
+  return '';
+}
+
+function validateConfirmPassword(password, confirm) {
+  if (!confirm) return 'Please confirm your password';
+  if (password !== confirm) return 'Passwords do not match';
+  return '';
+}
 
 export default function SignupPage({ onSignup = () => {}, onLogin = () => {} }) {
+  const { login } = useUser();
+  
   const [form, setForm] = useState({ name: '', email: '', university: '', password: '', confirm: '' });
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  
-  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  const handleSubmit = (e) => { e.preventDefault(); onSignup(); };
+  const set = k => e => {
+    const value = e.target.value;
+    setForm(f => ({ ...f, [k]: value }));
+    setServerError('');
+    
+    if (touched[k]) {
+      validateField(k, value);
+    }
+  };
+
+  const validateField = (field, value) => {
+    let error = '';
+    
+    if (field === 'name') error = validateName(value);
+    else if (field === 'email') error = validateEmail(value);
+    else if (field === 'password') error = validatePassword(value);
+    else if (field === 'confirm') error = validateConfirmPassword(form.password, value);
+    
+    setErrors(prev => ({ ...prev, [field]: error }));
+  };
+
+  const handleBlur = (field) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    validateField(field, form[field]);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const newErrors = {
+      name: validateName(form.name),
+      email: validateEmail(form.email),
+      password: validatePassword(form.password),
+      confirm: validateConfirmPassword(form.password, form.confirm)
+    };
+
+    setErrors(newErrors);
+    setTouched({ name: true, email: true, password: true, confirm: true });
+
+    if (Object.values(newErrors).some(err => err)) return;
+    if (!termsAccepted) {
+      setServerError('You must accept the Terms of Service and Community Guidelines');
+      return;
+    }
+
+    setLoading(true);
+    setServerError('');
+
+    try {
+      const response = await apiFetch('/users/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          university: form.university || 'Not specified',
+          password: form.password
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setServerError(errorData.message || 'Sign up failed. Please try again.');
+        return;
+      }
+
+      const data = await response.json();
+      
+      login(data.user);
+      
+      onSignup();
+    } catch (error) {
+      console.error('Signup error:', error);
+      setServerError('Network error. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hasErrors = Object.values(errors).some(err => err);
 
   return (
     <div style={s.root}>
@@ -31,24 +140,82 @@ export default function SignupPage({ onSignup = () => {}, onLogin = () => {} }) 
           <h2 style={s.title}>Create your account</h2>
           <p style={s.subtitle}>Start sharing books with fellow students</p>
 
+          {serverError && <div style={s.errorMsg}>{serverError}</div>}
+
           <form onSubmit={handleSubmit} style={s.form}>
             <div style={isMobile ? s.rowMobile : s.row}>
-              <Input label="Full Name" placeholder="Juliet Ramos" value={form.name} onChange={set('name')} style={{ flex: 1 }} />
-              <Input label="University" placeholder="TEC San Carlos" value={form.university} onChange={set('university')} style={{ flex: 1 }} />
+              <div style={{ flex: 1 }}>
+                <Input 
+                  label="Full Name" 
+                  placeholder="Ada Lovelace" 
+                  value={form.name} 
+                  onChange={set('name')}
+                  onBlur={() => handleBlur('name')}
+                  error={errors.name}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <Input 
+                  label="University" 
+                  placeholder="TEC San Carlos" 
+                  value={form.university} 
+                  onChange={set('university')}
+                />
+              </div>
             </div>
-            <Input label="University Email" type="email" placeholder="you@tec.ac.cr" value={form.email} onChange={set('email')} />
+
+            <Input 
+              label="Email" 
+              type="email" 
+              placeholder="yourEmail@domain.com" 
+              value={form.email} 
+              onChange={set('email')}
+              onBlur={() => handleBlur('email')}
+              error={errors.email}
+            />
+
             <div style={isMobile ? s.rowMobile : s.row}>
-              <Input label="Password" type="password" placeholder="Min. 8 characters" value={form.password} onChange={set('password')} style={{ flex: 1 }} />
-              <Input label="Confirm Password" type="password" placeholder="Repeat password" value={form.confirm} onChange={set('confirm')} style={{ flex: 1 }} />
+              <div style={{ flex: 1 }}>
+                <Input 
+                  label="Password" 
+                  type="password" 
+                  placeholder="Min. 8 characters" 
+                  value={form.password} 
+                  onChange={set('password')}
+                  onBlur={() => handleBlur('password')}
+                  error={errors.password}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <Input 
+                  label="Confirm Password" 
+                  type="password" 
+                  placeholder="Repeat password" 
+                  value={form.confirm} 
+                  onChange={set('confirm')}
+                  onBlur={() => handleBlur('confirm')}
+                  error={errors.confirm}
+                />
+              </div>
             </div>
 
             <label style={s.terms}>
-              <input type="checkbox" style={{ accentColor: '#8B1C1C' }} />
+              <input 
+                type="checkbox" 
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                style={{ accentColor: '#8B1C1C' }} 
+              />
               <span>I agree to the <span style={s.link}>Terms of Service</span> and <span style={s.link}>Community Guidelines</span></span>
             </label>
 
-            <Button variant="full" type="submit" style={s.submitBtn}>
-              Create Account →
+            <Button 
+              variant="full" 
+              type="submit" 
+              disabled={loading || (Object.keys(touched).length > 0 && (hasErrors || !termsAccepted))}
+              style={s.submitBtn}
+            >
+              {loading ? 'Creating account...' : 'Create Account →'}
             </Button>
           </form>
 
@@ -64,80 +231,102 @@ export default function SignupPage({ onSignup = () => {}, onLogin = () => {} }) 
 
 const s = {
   root: {
-    minHeight: '100vh',
-    background: '#FAF7F2',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '20px 16px',
-    position: 'relative',
-    overflow: 'hidden',
+    minHeight: '100vh',
+    background: 'var(--bg-primary)',
+    padding: '20px'
   },
   bg: {
-    position: 'absolute',
+    position: 'fixed',
     inset: 0,
-    background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(139,28,28,0.06) 0%, transparent 80%)',
+    background: 'linear-gradient(135deg, var(--crimson-dark), var(--crimson))',
+    opacity: 0.1,
+    zIndex: -1,
     pointerEvents: 'none',
   },
   card: {
-    width: '100%',
-    maxWidth: 560,
-    background: '#fff',
-    borderRadius: 16,
+    background: 'var(--bg-secondary)',
+    borderRadius: 12,
     overflow: 'hidden',
-    boxShadow: '0 20px 60px rgba(26,16,9,0.14)',
-    position: 'relative',
-    zIndex: 1,
+    width: '100%',
+    maxWidth: 500,
+    boxShadow: '0 20px 60px rgba(0,0,0,0.15)'
   },
   header: {
-    background: 'linear-gradient(135deg, #5A0E0E, #8B1C1C)',
-    padding: '24px 20px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
+    background: 'linear-gradient(135deg, var(--crimson-dark), var(--crimson))',
+    padding: '32px 20px',
+    textAlign: 'center',
+    color: '#fff'
   },
   headerSub: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.65)',
-    fontFamily: "'DM Sans', sans-serif",
+    marginTop: 8,
+    opacity: 0.9
   },
-  body: { padding: '24px 20px' },
+  body: {
+    padding: '32px 24px'
+  },
   title: {
-    fontFamily: "'Playfair Display', serif",
-    fontSize: 'clamp(20px, 5vw, 22px)',
+    fontSize: 22,
     fontWeight: 600,
-    color: '#1A1009',
-    marginBottom: 4,
+    marginBottom: 8
   },
-  subtitle: { fontSize: 13, color: '#9E8B75', marginBottom: 20 },
-  form: { display: 'flex', flexDirection: 'column', gap: 14 },
-  row: { display: 'flex', gap: 12 },
-  rowMobile: { display: 'flex', flexDirection: 'column', gap: 12 },
+  subtitle: {
+    fontSize: 13,
+    color: 'var(--text-muted)',
+    marginBottom: 24
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16
+  },
+  row: {
+    display: 'flex',
+    gap: 12
+  },
+  rowMobile: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12
+  },
   terms: {
     display: 'flex',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 10,
     fontSize: 12,
-    color: '#5C4A35',
-    cursor: 'pointer',
-    lineHeight: 1.5,
+    color: 'var(--text-secondary)',
+    lineHeight: 1.4
   },
-  link: { color: '#8B1C1C', cursor: 'pointer', textDecoration: 'underline' },
+  link: {
+    color: 'var(--crimson)',
+    fontWeight: 600,
+    cursor: 'pointer'
+  },
   submitBtn: {
-    fontSize: 14,
-    padding: '12px 20px',
-    background: '#8B1C1C',
-    boxShadow: '0 4px 16px rgba(139,28,28,0.3)',
+    marginTop: 8
   },
-  loginPrompt: { textAlign: 'center', fontSize: 12, color: '#9E8B75', marginTop: 20 },
+  loginPrompt: {
+    fontSize: 13,
+    marginTop: 20,
+    textAlign: 'center'
+  },
   loginLink: {
     background: 'none',
     border: 'none',
-    color: '#8B1C1C',
-    fontWeight: 600,
+    color: 'var(--crimson)',
     cursor: 'pointer',
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: 12,
-    textDecoration: 'underline',
+    fontWeight: 600
   },
+  errorMsg: {
+    background: '#FEE2E2',
+    color: '#DC2626',
+    padding: '12px 16px',
+    borderRadius: 8,
+    fontSize: 13,
+    marginBottom: 16,
+    fontWeight: 500
+  }
 };

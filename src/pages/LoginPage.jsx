@@ -1,8 +1,8 @@
-// src/pages/LoginPage.jsx - Responsive version (partial - fix positions)
-// src/pages/LoginPage.jsx
 import React, { useState, useEffect } from 'react';
 import Logo from '../components/Logo';
 import { Button, Input } from '../components/UI';
+import { apiFetch } from '../config/api';
+import { useUser } from '../context/UserContext';
 import illustration from '../assets/bookloop-illustration.png';
 import principito from '../assets/principito.png';
 import planeta from '../assets/planeta.png';
@@ -26,12 +26,16 @@ function validatePassword(val) {
 }
 
 export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
+  const { login } = useUser();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [errors, setErrors] = useState({ email: '', password: '' });
   const [touched, setTouched] = useState({ email: false, password: false });
+  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState('');
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -41,11 +45,13 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
 
   const handleEmailChange = (e) => {
     setEmail(e.target.value);
+    setServerError('');
     if (touched.email) setErrors(prev => ({ ...prev, email: validateEmail(e.target.value) }));
   };
 
   const handlePasswordChange = (e) => {
     setPassword(e.target.value);
+    setServerError('');
     if (touched.password) setErrors(prev => ({ ...prev, password: validatePassword(e.target.value) }));
   };
 
@@ -57,24 +63,50 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
     const emailErr = validateEmail(email);
     const passwordErr = validatePassword(password);
     setErrors({ email: emailErr, password: passwordErr });
     setTouched({ email: true, password: true });
+
     if (emailErr || passwordErr) return;
-    onLogin();
+
+    setLoading(true);
+    setServerError('');
+
+    try {
+      const response = await apiFetch('/users/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setServerError(errorData.message || 'Login failed. Please try again.');
+        return;
+      }
+
+      const data = await response.json();
+      login(data.user);
+      onLogin();
+    } catch (err) {
+      console.error('Login error:', err);
+      setServerError('Network error. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const hasErrors = !!(errors.email || errors.password);
 
   return (
     <div style={s.root}>
-      {/* Fondo */}
+      {}
       <div style={{ ...s.bgIllustration, backgroundImage: `url(${illustration})` }} />
 
-      {/* Panel login */}
+      {}
       <div style={isMobile ? s.panelMobile : s.panel}>
         <div style={s.brand}>
           <Logo size={isMobile ? 32 : 38} variant="light" />
@@ -101,6 +133,9 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
         <div style={s.formSide}>
           <h1 style={s.heading}>Welcome back</h1>
           <p style={s.subheading}>Sign in to continue lending &amp; borrowing</p>
+
+          {}
+          {serverError && <div style={s.errorMsg}>{serverError}</div>}
 
           <form onSubmit={handleSubmit} style={s.form}>
             <Input
@@ -136,8 +171,12 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
               <button type="button" style={s.forgotLink}>Forgot password?</button>
             </div>
 
-            <Button variant="full" type="submit" disabled={touched.email && touched.password && hasErrors}>
-              Sign In →
+            <Button
+              variant="full"
+              type="submit"
+              disabled={loading || (touched.email && touched.password && hasErrors)}
+            >
+              {loading ? 'Signing in...' : 'Sign In →'}
             </Button>
           </form>
 
@@ -150,15 +189,15 @@ export default function LoginPage({ onLogin = () => {}, onSignup = () => {} }) {
         </div>
       </div>
 
-      {/* Floating elements - hide on mobile */}
+      {}
       {!isMobile && (
         <>
-          <img src={avion} alt="avion" style={s.avion} />
-          <img src={pajaros} alt="pajaros" style={s.pajaros} />
-          <img src={planeta} alt="planeta" style={s.planeta} />
-          <img src={arbol} alt="arbol" style={s.arbol} />
-          <img src={principito} alt="principito" style={s.principito} />
-          <img src={zorrito} alt="zorrito" style={s.zorrito} />
+          <img src={avion}     alt="" style={s.avion}     />
+          <img src={pajaros}   alt="" style={s.pajaros}   />
+          <img src={planeta}   alt="" style={s.planeta}   />
+          <img src={arbol}     alt="" style={s.arbol}     />
+          <img src={principito} alt="" style={s.principito} />
+          <img src={zorrito}   alt="" style={s.zorrito}   />
         </>
       )}
     </div>
@@ -196,7 +235,7 @@ const s = {
     width: '100%',
     maxWidth: 820,
     position: 'relative',
-    zIndex: 1,
+    zIndex: 10,
   },
 
   panelMobile: {
@@ -209,7 +248,7 @@ const s = {
     width: '100%',
     maxWidth: 400,
     position: 'relative',
-    zIndex: 1,
+    zIndex: 10,
   },
 
   brand: {
@@ -279,35 +318,54 @@ const s = {
   eyeBtn: {
     position: 'absolute',
     right: 12,
-    bottom: 11,
     background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: 14,
+    color: '#9E8B75',
   },
 
   forgotLink: {
     color: '#8B1C1C',
     fontSize: 12,
     background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
   },
 
   signupPrompt: {
     textAlign: 'center',
     marginTop: 'auto',
+    paddingTop: 16,
     color: '#1A1009',
+    fontSize: 13,
   },
 
   signupLink: {
     color: '#8B1C1C',
     textDecoration: 'underline',
     background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: 600,
   },
 
-  // Hide decorative elements on mobile
+  errorMsg: {
+    background: '#FEE2E2',
+    color: '#DC2626',
+    padding: '10px 14px',
+    borderRadius: 8,
+    fontSize: 13,
+    marginBottom: 12,
+    fontWeight: 500,
+  },
+
   avion: {
     position: 'absolute',
     top: '65%',
     left: '-1%',
     width: 400,
-    zIndex: 1,
+    zIndex: 2,
     opacity: 0.8,
     transform: 'rotate(-10deg)',
     pointerEvents: 'none',
@@ -318,7 +376,7 @@ const s = {
     top: '-14%',
     right: '41%',
     width: 495,
-    zIndex: 1,
+    zIndex: 2,
     opacity: 0.7,
     pointerEvents: 'none',
   },
@@ -329,7 +387,8 @@ const s = {
     left: '20%',
     width: 220,
     transform: 'translate(-50%, -50%)',
-    zIndex: 1,
+    zIndex: 2,
+    pointerEvents: 'none',
   },
 
   principito: {
@@ -361,5 +420,6 @@ const s = {
     width: 600,
     transform: 'translate(-50%, -50%)',
     zIndex: 2,
+    pointerEvents: 'none',
   },
 };

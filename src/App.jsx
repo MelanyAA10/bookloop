@@ -1,8 +1,7 @@
 // src/App.jsx
 import React, { useState, useEffect } from 'react';
 import './styles/globals.css';
-import { apiFetch } from './config/api';
-import { UserProvider } from './context/UserContext';
+import { useUser } from './context/UserContext';
 
 import LoginPage       from './pages/LoginPage';
 import SignupPage      from './pages/SignupPage';
@@ -28,60 +27,32 @@ const PAGES = {
   profile:     ProfilePage,
 };
 
-// ─── Clave única en localStorage ─────────────────────────────────────────────
 const THEME_KEY = 'bookloop-theme';
 
-/**
- * Lee el tema persistido en localStorage.
- * - Si existe 'dark' o 'light' guardado, lo respeta siempre.
- * - Solo cae al default 'light' cuando no hay ningún valor guardado aún.
- */
 const getInitialTheme = () => {
   try {
     const saved = localStorage.getItem(THEME_KEY);
     if (saved === 'dark' || saved === 'light') return saved;
-  } catch {
-    // localStorage puede estar bloqueado en modo privado.
+  } catch {    
   }
   return 'light';
 };
 
 
 export default function App() {
-  const [page, setPage] = useState('login');
-  const [selectedBookId, setSelectedBookId] = useState(null);
-  const [currentUser, setCurrentUser] = useState({ initials: 'I', name: 'Invitado' });    // Invitado por defecto por si la API falla
+  const { user } = useUser();
 
-  // El estado del tema se inicializa UNA sola vez leyendo localStorage.
+  const [page, setPage] = useState(() => (user ? 'discovery' : 'login'));
+  const [selectedBookId, setSelectedBookId] = useState(null);
+
   const [theme, setTheme] = useState(getInitialTheme);
 
-  /**
-   * Efecto para obtener los datos del usuario autenticado UNA sola vez
-   * al cargar o refrescar la aplicación.
-   */
   useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const res = await apiFetch('/profile');
-        if (res.ok) {
-          const data = await res.json();
-          setCurrentUser({ initials: data.initials, name: data.name });
-        }
-      } catch (err) {
-        console.error('Error fetching current user:', err);
-      }
-    };
-    fetchCurrentUser();
-  }, []);
+    if (!user && page !== 'login' && page !== 'signup') {
+      setPage('login');
+    }
+  }, [user]);
 
-  /**
-   * Efecto de sincronización: cada vez que cambia `theme` o `page`,
-   * aplica la clase correcta al <body> y persiste en localStorage.
-   *
-   * Regla visual para auth: login y signup se renderizan siempre en 'light'
-   * porque su diseño no soporta dark mode. El estado `theme` conserva el
-   * valor real para restaurarlo al navegar a otras páginas.
-   */
   useEffect(() => {
     const isAuthPage = page === 'login' || page === 'signup';
     const bodyTheme  = isAuthPage ? 'light' : theme;
@@ -94,21 +65,17 @@ export default function App() {
     if (!isAuthPage) {
       try {
         localStorage.setItem(THEME_KEY, theme);
-      } catch {
-        // Silenciar errores de escritura en contextos restringidos.
+      } catch {        
       }
     }
   }, [theme, page]);
-
-  /** Alterna entre 'dark' y 'light', persiste y actualiza el estado. */
+  
   const toggleTheme = () => {
     setTheme(prev => {
       const next = prev === 'dark' ? 'light' : 'dark';
-      try {
-        // Persistir aquí garantiza que localStorage tenga el valor correcto
-        // incluso si el efecto se ejecuta de forma asíncrona.
+      try {        
         localStorage.setItem(THEME_KEY, next);
-      } catch { /* silenciar */ }
+      } catch { }
       return next;
     });
   };
@@ -142,39 +109,39 @@ export default function App() {
 
   if (page === 'bookdetail') {
     return (
-      <UserProvider user={currentUser}>
+      <>
         <BookDetailPage
           onNavigate={navigate}
           bookId={selectedBookId || 1}
           theme={theme}
           onToggleTheme={toggleTheme}
         />
-      </UserProvider>
+      </>
     );
   }
 
   if (page === 'loanconfirm') {
     return (
-      <UserProvider user={currentUser}>
+      <>
         <LoanConfirmPage
           onNavigate={navigate}
           bookId={selectedBookId}
           theme={theme}
           onToggleTheme={toggleTheme}
         />
-      </UserProvider>
+      </>
     );
   }
 
   // Todas las demás páginas autenticadas reciben las props de tema.
   const Page = PAGES[page] || DiscoveryPage;
   return (
-    <UserProvider user={currentUser}>
+    <>
       <Page
         onNavigate={navigate}
         theme={theme}
         onToggleTheme={toggleTheme}        
       />
-    </UserProvider>
+    </>
   );
 }

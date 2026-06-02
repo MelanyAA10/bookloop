@@ -9,7 +9,7 @@ export default function Navbar({
   theme = 'light',
   onToggleTheme = () => {},  
 }) {
-  const user = useUser() || { initials: 'I', name: 'Invitado' };      // Invitado por defecto por si el contexto falla
+  const { user } = useUser();   // { name, initials, ... } | null cuando no hay sesión
   const isDark = theme === 'dark';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -149,9 +149,9 @@ export default function Navbar({
         <button
           style={styles.avatar}
           onClick={() => onNavigate('profile')}
-          title={user.name}
+          title={user?.name ?? 'Invitado'}
         >
-          {user.initials}
+          {user?.initials ?? 'I'}
         </button>
       </div>
     </nav>
