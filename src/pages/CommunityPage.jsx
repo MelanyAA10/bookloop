@@ -1,4 +1,4 @@
-// src/pages/CommunityPage.jsx - Con usuario autenticado desde el perfil
+// src/pages/CommunityPage.jsx - Sin campos de nombre (usuario autenticado)
 
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
@@ -7,6 +7,21 @@ import { apiFetch, getBookImageUrl } from '../config/api';
 
 const PAGE_SIZE = 5;
 const COMMENTS_PAGE_SIZE = 5;
+
+// <--- NUEVO: Obtener usuario actual (ajusta según tu sistema de autenticación) --->
+const getCurrentUser = () => {
+  // Opción 1: Desde localStorage
+  const user = localStorage.getItem('user');
+  if (user) {
+    try {
+      return JSON.parse(user);
+    } catch {
+      return null;
+    }
+  }
+  // Opción 2: Usuario por defecto o desde contexto
+  return { name: 'Usuario', initials: 'US' };
+};
 
 const getInitials = (name) => {
   if (!name) return '?';
@@ -62,6 +77,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNewPost, setShowNewPost] = useState(false);
+  // <--- ELIMINADO: campo author del nuevo post --->
   const [newPost, setNewPost] = useState({ title: '', body: '', tag: 'Reviews' });
   const [submitting, setSubmitting] = useState(false);
   const [trendingBooks, setTrendingBooks] = useState([]);
@@ -80,30 +96,12 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [openComments, setOpenComments] = useState(null);
   const [commentsByPost, setCommentsByPost] = useState({});
   const [commentsLoading, setCommentsLoading] = useState(false);
+  // <--- ELIMINADO: campo author del nuevo comentario --->
   const [newComment, setNewComment] = useState({ content: '' });
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [commentsPage, setCommentsPage] = useState({});
-  
-  // <--- NUEVO: Estado para el perfil del usuario autenticado
-  const [profile, setProfile] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(true);
 
-  // <--- NUEVO: Obtener perfil del usuario al cargar
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const response = await apiFetch('/profile');
-      const data = await response.json();
-      setProfile(data);
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    } finally {
-      setProfileLoading(false);
-    }
-  };
+  const currentUser = getCurrentUser();  // <--- NUEVO: usuario actual
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -112,11 +110,9 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   }, []);
 
   useEffect(() => {
-    if (!profileLoading) {
-      fetchPosts(currentPage);
-      fetchTrending();
-    }
-  }, [currentPage, profileLoading]);
+    fetchPosts(currentPage);
+    fetchTrending();
+  }, [currentPage]);
 
   const fetchPosts = async (page = 1) => {
     setLoading(true);
@@ -147,23 +143,17 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   };
 
   const handleNewPost = async () => {
-    // Validar que el perfil existe
-    if (!profile?.name) {
-      alert('Debes iniciar sesión para publicar');
-      return;
-    }
-    
-    if (!newPost.title.trim() || !newPost.body.trim()) {
+    // <--- MODIFICADO: usa currentUser.name en lugar de campo manual --->
+    if (!currentUser?.name || !newPost.title.trim() || !newPost.body.trim()) {
       alert('Por favor completa título y contenido');
       return;
     }
-    
     setSubmitting(true);
     try {
       const response = await apiFetch('/posts', {
         method: 'POST',
         body: JSON.stringify({
-          author: profile.name,  // <--- USA EL NOMBRE DEL PERFIL
+          author: currentUser.name,  // <--- USA EL USUARIO ACTUAL
           category: newPost.tag,
           title: newPost.title,
           content: newPost.body,
@@ -224,7 +214,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       return;
     }
     setOpenComments(postId);
-    setNewComment({ content: '' });
+    setNewComment({ content: '' });  // <--- MODIFICADO: solo content
     setCommentsPage(prev => ({ ...prev, [postId]: 1 }));
 
     if (!commentsByPost[postId]) {
@@ -243,23 +233,17 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   };
 
   const handleNewComment = async (postId) => {
-    // Validar que el perfil existe
-    if (!profile?.name) {
-      alert('Debes iniciar sesión para comentar');
-      return;
-    }
-    
-    if (!newComment.content.trim()) {
+    // <--- MODIFICADO: usa currentUser.name en lugar de campo manual --->
+    if (!currentUser?.name || !newComment.content.trim()) {
       alert('Escribe un comentario');
       return;
     }
-    
     setCommentSubmitting(true);
     try {
       const response = await apiFetch(`/posts/${postId}/comments`, {
         method: 'POST',
         body: JSON.stringify({ 
-          author: profile.name,  // <--- USA EL NOMBRE DEL PERFIL
+          author: currentUser.name,  // <--- USA EL USUARIO ACTUAL
           content: newComment.content 
         }),
       });
@@ -269,7 +253,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       const updatedComments = [...(commentsByPost[postId] || []), created];
       setCommentsByPost(prev => ({ ...prev, [postId]: updatedComments }));
       setPosts(prev => prev.map(p => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)));
-      setNewComment({ content: '' });
+      setNewComment({ content: '' });  // <--- MODIFICADO: solo content
 
       const lastPage = Math.ceil(updatedComments.length / COMMENTS_PAGE_SIZE);
       setCommentsPage(prev => ({ ...prev, [postId]: lastPage }));
@@ -429,11 +413,11 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </div>
             )}
 
-            {/* Formulario de comentario - sin campo de nombre */}
+            {/* <--- MODIFICADO: formulario sin campo de nombre ---> */}
             <div style={{ ...s.commentForm, borderColor: 'var(--border-light)' }}>
               <textarea
                 style={{ ...s.commentTextarea, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
-                placeholder={`Comentar como ${profile?.name || 'Usuario'}...`}
+                placeholder="Escribe un comentario como {currentUser?.name || 'Usuario'}..."
                 value={newComment.content}
                 onChange={(e) => setNewComment({ content: e.target.value })}
               />
@@ -450,15 +434,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       </div>
     );
   };
-
-  if (profileLoading) {
-    return (
-      <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
-        <Navbar activePage="community" onNavigate={onNavigate} theme={theme} onToggleTheme={onToggleTheme} />
-        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>Cargando perfil...</div>
-      </div>
-    );
-  }
 
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
@@ -486,14 +461,11 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </Button>
             </div>
 
-            {/* Modal New Post - sin campo "Your name" */}
+            {/* <--- MODIFICADO: modal sin campo "Your name" ---> */}
             {showNewPost && (
               <div style={s.modalOverlay}>
                 <div style={{ ...s.modal, background: 'var(--bg-secondary)' }}>
                   <h3 style={{ ...s.modalTitle, color: 'var(--text-primary)' }}>Create New Post</h3>
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-                    Publicando como: <strong>{profile?.name}</strong>
-                  </p>
                   <input
                     style={{ ...s.modalInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
                     placeholder="Title"
@@ -544,7 +516,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
 
             {!loading && posts.map((post, idx) => postCard(post, idx))}
 
-            {/* Paginación de posts */}
             {!loading && totalPages > 1 && (
               <>
                 <div style={s.postsPagination}>
@@ -610,7 +581,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
             )}
           </div>
 
-          {/* Sidebar */}
           {!isMobile && (
             <div style={s.sidebar}>
               {trendingBooks.length > 0 && (
