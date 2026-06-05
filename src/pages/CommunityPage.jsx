@@ -1,4 +1,4 @@
-// src/pages/CommunityPage.jsx - Sin campos de nombre (usuario autenticado)
+// src/pages/CommunityPage.jsx - Con usuario autenticado
 
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
@@ -8,19 +8,31 @@ import { apiFetch, getBookImageUrl } from '../config/api';
 const PAGE_SIZE = 5;
 const COMMENTS_PAGE_SIZE = 5;
 
-// <--- NUEVO: Obtener usuario actual (ajusta según tu sistema de autenticación) --->
-const getCurrentUser = () => {
-  // Opción 1: Desde localStorage
-  const user = localStorage.getItem('user');
-  if (user) {
+// ========== FUNCIÓN PARA OBTENER USUARIO AUTENTICADO ==========
+const getAuthenticatedUser = () => {
+  // Intenta obtener del localStorage (como guardas después del login)
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
     try {
-      return JSON.parse(user);
+      const user = JSON.parse(userStr);
+      return { name: user.name || user.username || user.handle?.replace('@', '') || 'Usuario' };
     } catch {
       return null;
     }
   }
-  // Opción 2: Usuario por defecto o desde contexto
-  return { name: 'Usuario', initials: 'US' };
+  
+  // También podría estar en sessionStorage
+  const sessionUser = sessionStorage.getItem('user');
+  if (sessionUser) {
+    try {
+      const user = JSON.parse(sessionUser);
+      return { name: user.name || user.username || 'Usuario' };
+    } catch {
+      return null;
+    }
+  }
+  
+  return null;
 };
 
 const getInitials = (name) => {
@@ -51,14 +63,14 @@ const timeAgo = (iso) => {
 
 const mapPost = (p) => ({
   id: p.id,
-  name: p.author,
-  initials: getInitials(p.author),
-  time: timeAgo(p.created_at),
+  name: p.name,
+  initials: p.initials || getInitials(p.name),
+  time: p.time || timeAgo(p.created_at),
   title: p.title,
-  body: p.content,
-  tag: p.category,
+  body: p.body,
+  tag: p.tag,
   likes: p.likes ?? 0,
-  comments: p.comments_count ?? 0,
+  comments: p.comments ?? 0,
 });
 
 const HeartIcon = ({ filled = false, size = 14 }) => (
@@ -74,10 +86,12 @@ const CommentIcon = ({ size = 14 }) => (
 );
 
 export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTheme }) {
+  // ========== OBTENER USUARIO AUTENTICADO ==========
+  const [currentUser, setCurrentUser] = useState(null);
+  
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNewPost, setShowNewPost] = useState(false);
-  // <--- ELIMINADO: campo author del nuevo post --->
   const [newPost, setNewPost] = useState({ title: '', body: '', tag: 'Reviews' });
   const [submitting, setSubmitting] = useState(false);
   const [trendingBooks, setTrendingBooks] = useState([]);
@@ -96,12 +110,15 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [openComments, setOpenComments] = useState(null);
   const [commentsByPost, setCommentsByPost] = useState({});
   const [commentsLoading, setCommentsLoading] = useState(false);
-  // <--- ELIMINADO: campo author del nuevo comentario --->
   const [newComment, setNewComment] = useState({ content: '' });
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [commentsPage, setCommentsPage] = useState({});
 
-  const currentUser = getCurrentUser();  // <--- NUEVO: usuario actual
+  // ========== CARGAR USUARIO AL INICIO ==========
+  useEffect(() => {
+    const user = getAuthenticatedUser();
+    setCurrentUser(user);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -119,10 +136,10 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     try {
       const response = await apiFetch(`/posts/${page}/${PAGE_SIZE}`);
       const data = await response.json();
-      const normalized = (data.content || []).map(mapPost);
+      const normalized = (data.data || []).map(mapPost);
       setPosts(normalized);
       setTotalPages(data.total_pages || 1);
-      setTotalPosts(data.total_elements || 0);
+      setTotalPosts(data.total || data.data?.length || 0);
     } catch (error) {
       console.error('Error fetching posts:', error);
       setPosts([]);
@@ -143,17 +160,24 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   };
 
   const handleNewPost = async () => {
-    // <--- MODIFICADO: usa currentUser.name en lugar de campo manual --->
-    if (!currentUser?.name || !newPost.title.trim() || !newPost.body.trim()) {
+    // Verificar que hay usuario autenticado
+    if (!currentUser?.name) {
+      alert('Debes iniciar sesión para publicar');
+      onNavigate('profile');
+      return;
+    }
+    
+    if (!newPost.title.trim() || !newPost.body.trim()) {
       alert('Por favor completa título y contenido');
       return;
     }
+    
     setSubmitting(true);
     try {
       const response = await apiFetch('/posts', {
         method: 'POST',
         body: JSON.stringify({
-          author: currentUser.name,  // <--- USA EL USUARIO ACTUAL
+          author: currentUser.name,  // <--- NOMBRE DEL USUARIO AUTENTICADO
           category: newPost.tag,
           title: newPost.title,
           content: newPost.body,
@@ -214,7 +238,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       return;
     }
     setOpenComments(postId);
-    setNewComment({ content: '' });  // <--- MODIFICADO: solo content
+    setNewComment({ content: '' });
     setCommentsPage(prev => ({ ...prev, [postId]: 1 }));
 
     if (!commentsByPost[postId]) {
@@ -222,7 +246,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       try {
         const response = await apiFetch(`/posts/${postId}/comments`);
         const data = await response.json();
-        setCommentsByPost(prev => ({ ...prev, [postId]: Array.isArray(data) ? data : [] }));
+        setCommentsByPost(prev => ({ ...prev, [postId]: Array.isArray(data) ? data : (data.data || []) }));
       } catch (error) {
         console.error('Error fetching comments:', error);
         setCommentsByPost(prev => ({ ...prev, [postId]: [] }));
@@ -233,17 +257,24 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   };
 
   const handleNewComment = async (postId) => {
-    // <--- MODIFICADO: usa currentUser.name en lugar de campo manual --->
-    if (!currentUser?.name || !newComment.content.trim()) {
+    // Verificar que hay usuario autenticado
+    if (!currentUser?.name) {
+      alert('Debes iniciar sesión para comentar');
+      onNavigate('profile');
+      return;
+    }
+    
+    if (!newComment.content.trim()) {
       alert('Escribe un comentario');
       return;
     }
+    
     setCommentSubmitting(true);
     try {
       const response = await apiFetch(`/posts/${postId}/comments`, {
         method: 'POST',
         body: JSON.stringify({ 
-          author: currentUser.name,  // <--- USA EL USUARIO ACTUAL
+          author: currentUser.name,  // <--- NOMBRE DEL USUARIO AUTENTICADO
           content: newComment.content 
         }),
       });
@@ -253,7 +284,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       const updatedComments = [...(commentsByPost[postId] || []), created];
       setCommentsByPost(prev => ({ ...prev, [postId]: updatedComments }));
       setPosts(prev => prev.map(p => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)));
-      setNewComment({ content: '' });  // <--- MODIFICADO: solo content
+      setNewComment({ content: '' });
 
       const lastPage = Math.ceil(updatedComments.length / COMMENTS_PAGE_SIZE);
       setCommentsPage(prev => ({ ...prev, [postId]: lastPage }));
@@ -304,7 +335,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     const { comments, totalCommentPages, currentCommentPage, totalCount, rangeStart, rangeEnd } = getPagedComments(post.id);
 
     return (
-      <div key={post.id || post.title + idx} style={{ ...s.postCard, background: 'var(--bg-secondary)', borderColor: 'var(--border-light)' }}>
+      <div key={post.id || idx} style={{ ...s.postCard, background: 'var(--bg-secondary)', borderColor: 'var(--border-light)' }}>
         <div style={s.postHeader}>
           <Avatar initials={post.initials} size={36} />
           <div>
@@ -413,18 +444,19 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </div>
             )}
 
-            {/* <--- MODIFICADO: formulario sin campo de nombre ---> */}
+            {/* Formulario de comentario - sin campo de nombre */}
             <div style={{ ...s.commentForm, borderColor: 'var(--border-light)' }}>
               <textarea
                 style={{ ...s.commentTextarea, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
-                placeholder="Escribe un comentario como {currentUser?.name || 'Usuario'}..."
+                placeholder={currentUser?.name ? `Comentar como ${currentUser.name}...` : "Inicia sesión para comentar..."}
                 value={newComment.content}
                 onChange={(e) => setNewComment({ content: e.target.value })}
+                disabled={!currentUser?.name}
               />
               <button
-                style={{ ...s.commentSubmit, opacity: commentSubmitting ? 0.6 : 1 }}
+                style={{ ...s.commentSubmit, opacity: (!currentUser?.name || commentSubmitting) ? 0.6 : 1 }}
                 onClick={() => handleNewComment(post.id)}
-                disabled={commentSubmitting}
+                disabled={!currentUser?.name || commentSubmitting}
               >
                 {commentSubmitting ? 'Enviando...' : 'Comentar'}
               </button>
@@ -461,27 +493,35 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </Button>
             </div>
 
-            {/* <--- MODIFICADO: modal sin campo "Your name" ---> */}
+            {/* Modal de nuevo post - sin campo de nombre */}
             {showNewPost && (
               <div style={s.modalOverlay}>
                 <div style={{ ...s.modal, background: 'var(--bg-secondary)' }}>
                   <h3 style={{ ...s.modalTitle, color: 'var(--text-primary)' }}>Create New Post</h3>
+                  {!currentUser?.name && (
+                    <p style={{ color: 'var(--crimson)', fontSize: 12, marginBottom: 12 }}>
+                      ⚠️ Debes iniciar sesión para publicar
+                    </p>
+                  )}
                   <input
                     style={{ ...s.modalInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
                     placeholder="Title"
                     value={newPost.title}
                     onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
+                    disabled={!currentUser?.name}
                   />
                   <textarea
                     style={{ ...s.modalTextarea, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
                     placeholder="What's on your mind?"
                     value={newPost.body}
                     onChange={(e) => setNewPost({ ...newPost, body: e.target.value })}
+                    disabled={!currentUser?.name}
                   />
                   <select
                     style={{ ...s.modalSelect, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
                     value={newPost.tag}
                     onChange={(e) => setNewPost({ ...newPost, tag: e.target.value })}
+                    disabled={!currentUser?.name}
                   >
                     <option value="Reviews">Reviews</option>
                     <option value="Recommendations">Recommendations</option>
@@ -490,7 +530,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                   </select>
                   <div style={s.modalActions}>
                     <button style={{ ...s.modalCancel, background: 'var(--bg-surface)', color: 'var(--text-secondary)' }} onClick={() => setShowNewPost(false)}>Cancel</button>
-                    <button style={s.modalSubmit} onClick={handleNewPost} disabled={submitting}>
+                    <button style={s.modalSubmit} onClick={handleNewPost} disabled={submitting || !currentUser?.name}>
                       {submitting ? 'Posting...' : 'Post'}
                     </button>
                   </div>
@@ -516,6 +556,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
 
             {!loading && posts.map((post, idx) => postCard(post, idx))}
 
+            {/* Paginación de posts */}
             {!loading && totalPages > 1 && (
               <>
                 <div style={s.postsPagination}>
