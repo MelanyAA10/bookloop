@@ -4,17 +4,57 @@ import Navbar from '../components/Navbar';
 import { Avatar, Tag, BookCover, Card, SectionLabel, Button } from '../components/UI';
 import { apiFetch, getBookImageUrl } from '../config/api';
 
+const PAGE_SIZE = 10;
+
+// El microservicio no manda initials ni "time"; los generamos en el front.
+const getInitials = (name) => {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?';
+};
+
+const timeAgo = (iso) => {
+  if (!iso) return '';
+  let str = iso;
+  if (!/[zZ]|[+-]\d{2}:\d{2}$/.test(str)) str += 'Z'; // el micro guarda UTC sin zona
+  const then = new Date(str);
+  if (isNaN(then.getTime())) return '';
+  let secs = Math.floor((Date.now() - then.getTime()) / 1000);
+  if (secs < 0) secs = 0;
+  if (secs < 60) return 'just now';
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+};
+
+const mapPost = (p) => ({
+  id: p.id,
+  name: p.author,
+  initials: getInitials(p.author),
+  time: timeAgo(p.created_at),
+  title: p.title,
+  body: p.content,
+  tag: p.category,
+  likes: p.likes ?? 0,
+  comments: p.comments_count ?? 0,
+});
+
 export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNewPost, setShowNewPost] = useState(false);
-  const [newPost, setNewPost] = useState({ title: '', body: '', tag: 'Reviews' });
+  const [newPost, setNewPost] = useState({ author: '', title: '', body: '', tag: 'Reviews' });
   const [submitting, setSubmitting] = useState(false);
   const [trendingBooks, setTrendingBooks] = useState([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1); // base 1 (el micro espera /posts/1/10)
   const [totalPages, setTotalPages] = useState(1);
-  const pageSize = 10;
   const isDark = theme === 'dark';
 
   useEffect(() => {
@@ -31,22 +71,14 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const fetchPosts = async (page = 1) => {
     setLoading(true);
     try {
-      const response = await apiFetch(`/posts/${page}/${pageSize}`);
+      const response = await apiFetch(`/posts/${page}/${PAGE_SIZE}`);
       const data = await response.json();
-      const normalized = (data.content || []).map(p => ({
-        ...p,
-        name: p.author,
-        body: p.content,
-        tag: p.category,
-        time: new Date(p.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }),
-        initials: p.author ? p.author.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?',
-        likes: p.likes ?? 0,
-        comments: p.comments_count ?? 0,
-      }));
+      const normalized = (data.content || []).map(mapPost);
       setPosts(normalized);
       setTotalPages(data.total_pages || 1);
     } catch (error) {
       console.error('Error fetching posts:', error);
+      setPosts([]);
     } finally {
       setLoading(false);
     }
@@ -64,24 +96,45 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   };
 
   const handleNewPost = async () => {
-    if (!newPost.title.trim() || !newPost.body.trim()) {
-      alert('Por favor completa título y contenido');
+    if (!newPost.author.trim() || !newPost.title.trim() || !newPost.body.trim()) {
+      alert('Por favor completa autor, título y contenido');
       return;
     }
     setSubmitting(true);
     try {
       const response = await apiFetch('/posts', {
         method: 'POST',
-        body: JSON.stringify({ title: newPost.title, body: newPost.body, tag: newPost.tag }),
+        body: JSON.stringify({
+          author: newPost.author,
+          category: newPost.tag,
+          title: newPost.title,
+          content: newPost.body,
+        }),
       });
-      const created = await response.json();
-      setPosts(prev => [created, ...prev]);
-      setNewPost({ title: '', body: '', tag: 'Reviews' });
+      if (!response.ok) throw new Error('status ' + response.status);
+      setNewPost({ author: '', title: '', body: '', tag: 'Reviews' });
       setShowNewPost(false);
+      if (currentPage === 1) {
+        fetchPosts(1); // ya estamos en la página 1: recargar
+      } else {
+        setCurrentPage(1); // ir a la página 1 (dispara el useEffect)
+      }
     } catch (error) {
       console.error('Error creating post:', error);
+      alert('No se pudo crear el post. Intenta de nuevo.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleLike = async (postId) => {
+    try {
+      const response = await apiFetch(`/posts/${postId}/like`, { method: 'POST' });
+      if (!response.ok) return;
+      const updated = await response.json();
+      setPosts(prev => prev.map(p => (p.id === postId ? { ...p, likes: updated.likes } : p)));
+    } catch (error) {
+      console.error('Error liking post:', error);
     }
   };
 
@@ -108,21 +161,27 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               <div style={s.modalOverlay}>
                 <div style={{ ...s.modal, background: 'var(--bg-secondary)' }}>
                   <h3 style={{ ...s.modalTitle, color: 'var(--text-primary)' }}>Create New Post</h3>
-                  <input 
-                    style={{ ...s.modalInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }} 
-                    placeholder="Title" 
-                    value={newPost.title} 
-                    onChange={(e) => setNewPost({ ...newPost, title: e.target.value })} 
+                  <input
+                    style={{ ...s.modalInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                    placeholder="Your name"
+                    value={newPost.author}
+                    onChange={(e) => setNewPost({ ...newPost, author: e.target.value })}
                   />
-                  <textarea 
-                    style={{ ...s.modalTextarea, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }} 
-                    placeholder="What's on your mind?" 
-                    value={newPost.body} 
-                    onChange={(e) => setNewPost({ ...newPost, body: e.target.value })} 
+                  <input
+                    style={{ ...s.modalInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                    placeholder="Title"
+                    value={newPost.title}
+                    onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
                   />
-                  <select 
-                    style={{ ...s.modalSelect, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }} 
-                    value={newPost.tag} 
+                  <textarea
+                    style={{ ...s.modalTextarea, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                    placeholder="What's on your mind?"
+                    value={newPost.body}
+                    onChange={(e) => setNewPost({ ...newPost, body: e.target.value })}
+                  />
+                  <select
+                    style={{ ...s.modalSelect, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                    value={newPost.tag}
                     onChange={(e) => setNewPost({ ...newPost, tag: e.target.value })}
                   >
                     <option value="Reviews">Reviews</option>
@@ -169,9 +228,15 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                 <h3 style={{ ...s.postTitle, color: 'var(--text-primary)' }}>{post.title}</h3>
                 <p style={{ ...s.postBody, color: 'var(--text-secondary)' }}>{post.body}</p>
                 <div style={s.postActions}>
-                  <button style={{ ...s.actionBtn, background: 'var(--bg-surface)', color: 'var(--text-secondary)' }}>♥ {post.likes}</button>
-                  <button style={{ ...s.actionBtn, background: 'var(--bg-surface)', color: 'var(--text-secondary)' }}>💬 {post.comments}</button>
-                  <button style={{ ...s.actionBtn, background: 'var(--bg-surface)', color: 'var(--text-secondary)' }}>↗ Share</button>
+                  <button
+                    style={{ ...s.actionBtn, background: 'var(--bg-surface)', color: 'var(--text-secondary)' }}
+                    onClick={() => handleLike(post.id)}
+                  >
+                    ♥ {post.likes}
+                  </button>
+                  <button style={{ ...s.actionBtn, background: 'var(--bg-surface)', color: 'var(--text-secondary)' }}>
+                    💬 {post.comments}
+                  </button>
                 </div>
               </div>
             ))}
@@ -202,17 +267,10 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
           {!isMobile && (
             <div style={s.sidebar}>
               {trendingBooks.length > 0 && (
-                <Card style={{ 
-                  background: 'var(--bg-secondary)', 
-                  borderColor: 'var(--border-light)' 
-                }}>
+                <Card style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-light)' }}>
                   <SectionLabel>Trending Books</SectionLabel>
                   {trendingBooks.map(book => (
-                    <div
-                      key={book.id}
-                      style={s.trendItem}
-                      onClick={() => onNavigate('bookdetail', { id: book.id })}
-                    >
+                    <div key={book.id} style={s.trendItem} onClick={() => onNavigate('bookdetail', { id: book.id })}>
                       <BookCover
                         color={book.color}
                         title={book.title}
@@ -238,11 +296,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
         <div style={{ ...s.mobileTrending, background: 'var(--bg-secondary)', borderColor: 'var(--border-light)', marginTop: 20 }}>
           <SectionLabel>Trending Books</SectionLabel>
           {trendingBooks.map(book => (
-            <div
-              key={book.id}
-              style={s.trendItem}
-              onClick={() => onNavigate('bookdetail', { id: book.id })}
-            >
+            <div key={book.id} style={s.trendItem} onClick={() => onNavigate('bookdetail', { id: book.id })}>
               <BookCover
                 color={book.color}
                 title={book.title}
@@ -270,28 +324,14 @@ const s = {
   feed: {},
   feedTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   feedTitle: { fontFamily: "'Playfair Display', serif", fontSize: 'clamp(20px, 5vw, 22px)', fontWeight: 600 },
-  postCard: {
-    border: '1px solid',
-    borderRadius: 10,
-    padding: '14px',
-    marginBottom: 12,
-    boxShadow: 'var(--shadow)',
-  },
+  postCard: { border: '1px solid', borderRadius: 10, padding: '14px', marginBottom: 12, boxShadow: 'var(--shadow)' },
   postHeader: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' },
   postAuthor: { fontWeight: 500, fontSize: 13 },
   postTime: { fontSize: 11 },
   postTitle: { fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 600, marginBottom: 8, lineHeight: 1.3 },
   postBody: { fontSize: 13, lineHeight: 1.65, marginBottom: 14 },
   postActions: { display: 'flex', gap: 8, flexWrap: 'wrap' },
-  actionBtn: {
-    border: 'none',
-    borderRadius: 16,
-    padding: '5px 12px',
-    fontSize: 12,
-    cursor: 'pointer',
-    fontFamily: "'DM Sans', sans-serif",
-    fontWeight: 500,
-  },
+  actionBtn: { border: 'none', borderRadius: 16, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontWeight: 500 },
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px', gap: 10, textAlign: 'center' },
   emptyTitle: { fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600, margin: 0 },
   emptySubtitle: { fontSize: 13, margin: 0 },
@@ -302,21 +342,8 @@ const s = {
   trendAuthor: { fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   mobileTrending: { margin: '20px 16px 0', padding: 16, border: '1px solid', borderRadius: 10 },
   pagination: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 20, marginBottom: 8 },
-  pageBtn: {
-    border: 'none',
-    borderRadius: 16,
-    padding: '7px 16px',
-    fontSize: 12,
-    cursor: 'pointer',
-    fontFamily: "'DM Sans', sans-serif",
-    fontWeight: 500,
-    background: 'var(--bg-surface)',
-    color: 'var(--text-secondary)',
-  },
-  modalOverlay: {
-    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16,
-  },
+  pageBtn: { border: 'none', borderRadius: 16, padding: '7px 16px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontWeight: 500, background: 'var(--bg-surface)', color: 'var(--text-secondary)' },
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
   modal: { borderRadius: 12, padding: 20, width: '90%', maxWidth: 500 },
   modalTitle: { fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600, marginBottom: 16 },
   modalInput: { width: '100%', padding: '10px 12px', border: '1.5px solid', borderRadius: 6, fontSize: 13, marginBottom: 12, fontFamily: "'DM Sans', sans-serif" },
