@@ -45,15 +45,13 @@ const mapPost = (p) => ({
   comments: p.comments_count ?? 0,
 });
 
-// Icono de corazón SVG
-const HeartIcon = ({ filled = false, size = 16 }) => (
+const HeartIcon = ({ filled = false, size = 14 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
   </svg>
 );
 
-// Icono de comentario SVG
-const CommentIcon = ({ size = 16 }) => (
+const CommentIcon = ({ size = 14 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
   </svg>
@@ -71,15 +69,12 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [totalPages, setTotalPages] = useState(1);
   const [likedPosts, setLikedPosts] = useState({});
 
-  // --- Estado de comentarios ---
   const [openComments, setOpenComments] = useState(null);
   const [commentsByPost, setCommentsByPost] = useState({});
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [newComment, setNewComment] = useState({ author: '', content: '' });
   const [commentSubmitting, setCommentSubmitting] = useState(false);
-  const [commentsPage, setCommentsPage] = useState({});  // { [postId]: currentPage }
-
-  const isDark = theme === 'dark';
+  const [commentsPage, setCommentsPage] = useState({});
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -160,7 +155,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
   };
 
-  // --- Comentarios ---
   const toggleComments = async (postId) => {
     if (openComments === postId) {
       setOpenComments(null);
@@ -168,9 +162,8 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
     setOpenComments(postId);
     setNewComment({ author: '', content: '' });
-    if (!commentsPage[postId]) {
-      setCommentsPage(prev => ({ ...prev, [postId]: 1 }));
-    }
+    setCommentsPage(prev => ({ ...prev, [postId]: 1 }));
+
     if (!commentsByPost[postId]) {
       setCommentsLoading(true);
       try {
@@ -199,12 +192,13 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       });
       if (!response.ok) throw new Error('status ' + response.status);
       const created = await response.json();
-      setCommentsByPost(prev => ({ ...prev, [postId]: [...(prev[postId] || []), created] }));
+
+      const updatedComments = [...(commentsByPost[postId] || []), created];
+      setCommentsByPost(prev => ({ ...prev, [postId]: updatedComments }));
       setPosts(prev => prev.map(p => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)));
       setNewComment({ author: '', content: '' });
-      // Ir a la última página de comentarios al añadir uno
-      const allComments = [...(commentsByPost[postId] || []), created];
-      const lastPage = Math.ceil(allComments.length / COMMENTS_PAGE_SIZE);
+
+      const lastPage = Math.ceil(updatedComments.length / COMMENTS_PAGE_SIZE);
       setCommentsPage(prev => ({ ...prev, [postId]: lastPage }));
     } catch (error) {
       console.error('Error creating comment:', error);
@@ -214,22 +208,24 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
   };
 
-  // Paginación de comentarios
   const getPagedComments = (postId) => {
     const all = commentsByPost[postId] || [];
     const page = commentsPage[postId] || 1;
+    const total = all.length;
+    const totalCommentPages = total > 0 ? Math.ceil(total / COMMENTS_PAGE_SIZE) : 1;
     const start = (page - 1) * COMMENTS_PAGE_SIZE;
     return {
       comments: all.slice(start, start + COMMENTS_PAGE_SIZE),
-      totalCommentPages: Math.ceil(all.length / COMMENTS_PAGE_SIZE) || 1,
+      totalCommentPages,
       currentCommentPage: page,
+      totalCount: total,
     };
   };
 
   const postCard = (post, idx) => {
     const liked = likedPosts[post.id] || false;
-    const { comments, totalCommentPages, currentCommentPage } = getPagedComments(post.id);
     const isOpen = openComments === post.id;
+    const { comments, totalCommentPages, currentCommentPage, totalCount } = getPagedComments(post.id);
 
     return (
       <div key={post.id || post.title + idx} style={{ ...s.postCard, background: 'var(--bg-secondary)', borderColor: 'var(--border-light)' }}>
@@ -244,7 +240,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
         <h3 style={{ ...s.postTitle, color: 'var(--text-primary)' }}>{post.title}</h3>
         <p style={{ ...s.postBody, color: 'var(--text-secondary)' }}>{post.body}</p>
 
-        {/* Botones de acción mejorados */}
         <div style={s.postActions}>
           <button
             style={{
@@ -255,10 +250,8 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
             }}
             onClick={() => handleLike(post.id)}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <HeartIcon filled={liked} size={14} />
-              <span style={{ fontSize: 12, fontWeight: 500 }}>{post.likes}</span>
-            </span>
+            <HeartIcon filled={liked} size={14} />
+            <span style={{ fontSize: 12, fontWeight: 500 }}>{post.likes}</span>
           </button>
           <button
             style={{
@@ -269,26 +262,23 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
             }}
             onClick={() => toggleComments(post.id)}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <CommentIcon size={14} />
-              <span style={{ fontSize: 12, fontWeight: 500 }}>{post.comments}</span>
-            </span>
+            <CommentIcon size={14} />
+            <span style={{ fontSize: 12, fontWeight: 500 }}>{post.comments}</span>
           </button>
         </div>
 
-        {/* Acordeón de comentarios */}
         {isOpen && (
           <div style={{ ...s.commentsSection, borderColor: 'var(--border-light)' }}>
             {commentsLoading && !commentsByPost[post.id] && (
               <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Cargando comentarios...</p>
             )}
 
-            {commentsByPost[post.id] && commentsByPost[post.id].length === 0 && (
+            {commentsByPost[post.id] && totalCount === 0 && (
               <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Sé el primero en comentar.</p>
             )}
 
             {comments.map((c) => (
-              <div key={c.id} style={{ ...s.commentItem, borderColor: 'var(--border-light)' }}>
+              <div key={c.id} style={{ ...s.commentItem, background: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
                 <Avatar initials={getInitials(c.author)} size={30} />
                 <div style={s.commentContent}>
                   <div style={s.commentMeta}>
@@ -300,21 +290,32 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </div>
             ))}
 
-            {/* Paginación de comentarios */}
             {totalCommentPages > 1 && (
               <div style={s.commentsPagination}>
                 <button
-                  style={{ ...s.commentPageBtn, opacity: currentCommentPage === 1 ? 0.4 : 1, background: 'var(--bg-surface)', color: 'var(--text-secondary)', borderColor: 'var(--border-light)' }}
+                  style={{
+                    ...s.commentPageBtn,
+                    opacity: currentCommentPage === 1 ? 0.35 : 1,
+                    background: 'var(--bg-surface)',
+                    color: 'var(--text-secondary)',
+                    borderColor: 'var(--border-light)',
+                  }}
                   onClick={() => setCommentsPage(prev => ({ ...prev, [post.id]: Math.max((prev[post.id] || 1) - 1, 1) }))}
                   disabled={currentCommentPage === 1}
                 >
                   ←
                 </button>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 48, textAlign: 'center' }}>
                   {currentCommentPage} / {totalCommentPages}
                 </span>
                 <button
-                  style={{ ...s.commentPageBtn, opacity: currentCommentPage === totalCommentPages ? 0.4 : 1, background: 'var(--bg-surface)', color: 'var(--text-secondary)', borderColor: 'var(--border-light)' }}
+                  style={{
+                    ...s.commentPageBtn,
+                    opacity: currentCommentPage === totalCommentPages ? 0.35 : 1,
+                    background: 'var(--bg-surface)',
+                    color: 'var(--text-secondary)',
+                    borderColor: 'var(--border-light)',
+                  }}
                   onClick={() => setCommentsPage(prev => ({ ...prev, [post.id]: Math.min((prev[post.id] || 1) + 1, totalCommentPages) }))}
                   disabled={currentCommentPage === totalCommentPages}
                 >
@@ -323,7 +324,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </div>
             )}
 
-            {/* Formulario nuevo comentario */}
             <div style={{ ...s.commentForm, borderColor: 'var(--border-light)' }}>
               <input
                 style={{ ...s.commentInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
@@ -370,7 +370,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </Button>
             </div>
 
-            {/* Modal nuevo post */}
             {showNewPost && (
               <div style={s.modalOverlay}>
                 <div style={{ ...s.modal, background: 'var(--bg-secondary)' }}>
@@ -523,48 +522,43 @@ const s = {
   postBody: { fontSize: 13, lineHeight: 1.65, marginBottom: 14 },
   postActions: { display: 'flex', gap: 8, flexWrap: 'wrap' },
 
-  // Botones de acción rediseñados
   actionBtn: {
-    border: '1px solid',
     borderRadius: 20,
     padding: '6px 14px',
-    fontSize: 13,
     cursor: 'pointer',
     fontFamily: "'DM Sans', sans-serif",
     fontWeight: 500,
     display: 'inline-flex',
     alignItems: 'center',
+    gap: 5,
     transition: 'all 0.15s ease',
   },
 
-  // Sección de comentarios
   commentsSection: { marginTop: 16, paddingTop: 16, borderTop: '1px solid' },
-  commentMuted: { fontSize: 12, fontStyle: 'italic', marginBottom: 12 },
+  commentMuted: { fontSize: 12, fontStyle: 'italic', marginBottom: 12, color: 'var(--text-muted)' },
 
   commentItem: {
     display: 'flex',
     gap: 10,
-    marginBottom: 12,
+    marginBottom: 8,
     alignItems: 'flex-start',
     padding: '10px 12px',
     borderRadius: 8,
     border: '1px solid',
-    background: 'var(--bg-primary)',
   },
   commentContent: { flex: 1, minWidth: 0 },
-  commentMeta: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 },
+  commentMeta: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 },
   commentAuthor: { fontSize: 12, fontWeight: 600 },
   commentTime: { fontSize: 11 },
   commentText: { fontSize: 13, lineHeight: 1.5, margin: 0 },
 
-  // Paginación de comentarios
   commentsPagination: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    marginTop: 4,
-    marginBottom: 16,
+    gap: 10,
+    marginTop: 8,
+    marginBottom: 14,
   },
   commentPageBtn: {
     border: '1px solid',
@@ -577,7 +571,6 @@ const s = {
     transition: 'all 0.15s ease',
   },
 
-  // Formulario de comentario
   commentForm: {
     marginTop: 14,
     paddingTop: 14,
@@ -619,7 +612,6 @@ const s = {
     fontSize: 12,
     fontFamily: "'DM Sans', sans-serif",
     fontWeight: 500,
-    letterSpacing: '0.01em',
   },
 
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px', gap: 10, textAlign: 'center' },
