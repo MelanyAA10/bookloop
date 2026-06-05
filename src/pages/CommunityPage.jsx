@@ -1,4 +1,5 @@
-// src/pages/CommunityPage.jsx - Con soporte completo para modo oscuro
+// src/pages/CommunityPage.jsx - Versión corregida con paginación funcional
+
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Avatar, Tag, BookCover, Card, SectionLabel, Button } from '../components/UI';
@@ -192,6 +193,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
     setOpenComments(postId);
     setNewComment({ author: '', content: '' });
+    // Reset to page 1 when opening comments
     setCommentsPage(prev => ({ ...prev, [postId]: 1 }));
 
     if (!commentsByPost[postId]) {
@@ -223,13 +225,15 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       if (!response.ok) throw new Error('status ' + response.status);
       const created = await response.json();
 
+      // Update comments with new comment
       const updatedComments = [...(commentsByPost[postId] || []), created];
       setCommentsByPost(prev => ({ ...prev, [postId]: updatedComments }));
       setPosts(prev => prev.map(p => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)));
       setNewComment({ author: '', content: '' });
-
-      const lastPage = Math.ceil(updatedComments.length / COMMENTS_PAGE_SIZE);
-      setCommentsPage(prev => ({ ...prev, [postId]: lastPage }));
+      
+      // Calculate last page after adding new comment
+      const newTotalPages = Math.ceil(updatedComments.length / COMMENTS_PAGE_SIZE);
+      setCommentsPage(prev => ({ ...prev, [postId]: newTotalPages }));
     } catch (error) {
       console.error('Error creating comment:', error);
       alert('No se pudo enviar el comentario. Intenta de nuevo.');
@@ -240,18 +244,34 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
 
   const getPagedComments = (postId) => {
     const all = commentsByPost[postId] || [];
-    const page = commentsPage[postId] || 1;
+    const currentPageNum = commentsPage[postId] || 1;
     const total = all.length;
     const totalCommentPages = total > 0 ? Math.ceil(total / COMMENTS_PAGE_SIZE) : 1;
-    const start = (page - 1) * COMMENTS_PAGE_SIZE;
+    
+    // Ensure current page is valid
+    const validPage = Math.min(currentPageNum, totalCommentPages);
+    if (validPage !== currentPageNum) {
+      setCommentsPage(prev => ({ ...prev, [postId]: validPage }));
+    }
+    
+    const start = (validPage - 1) * COMMENTS_PAGE_SIZE;
+    const end = Math.min(start + COMMENTS_PAGE_SIZE, total);
+    
     return {
-      comments: all.slice(start, start + COMMENTS_PAGE_SIZE),
-      totalCommentPages,
-      currentCommentPage: page,
+      comments: all.slice(start, end),
+      totalCommentPages: totalCommentPages,
+      currentCommentPage: validPage,
       totalCount: total,
       rangeStart: total > 0 ? start + 1 : 0,
-      rangeEnd: Math.min(page * COMMENTS_PAGE_SIZE, total),
+      rangeEnd: end,
     };
+  };
+
+  const changeCommentsPage = (postId, newPage) => {
+    const all = commentsByPost[postId] || [];
+    const totalPages = Math.ceil(all.length / COMMENTS_PAGE_SIZE);
+    const validPage = Math.max(1, Math.min(newPage, totalPages));
+    setCommentsPage(prev => ({ ...prev, [postId]: validPage }));
   };
 
   const postCard = (post, idx) => {
@@ -301,8 +321,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
 
         {isOpen && (
           <div style={{ ...s.commentsSection, borderColor: 'var(--border-light)' }}>
-
-            {/* Encabezado con contador */}
+            {/* Header with counter */}
             {commentsByPost[post.id] && totalCount > 0 && (
               <div style={s.commentsHeader}>
                 <span style={{ ...s.commentsHeaderTitle, color: 'var(--text-primary)' }}>
@@ -324,6 +343,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Sé el primero en comentar.</p>
             )}
 
+            {/* Comments list */}
             {comments.map((c) => (
               <div key={c.id} style={{ ...s.commentItem, background: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
                 <Avatar initials={getInitials(c.author)} size={30} />
@@ -337,7 +357,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </div>
             ))}
 
-            {/* Paginación */}
+            {/* Pagination */}
             {totalCommentPages > 1 && (
               <div style={s.commentsPagination}>
                 <button
@@ -348,13 +368,13 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                     color: 'var(--text-secondary)',
                     borderColor: 'var(--border-light)',
                   }}
-                  onClick={() => setCommentsPage(prev => ({ ...prev, [post.id]: Math.max((prev[post.id] || 1) - 1, 1) }))}
+                  onClick={() => changeCommentsPage(post.id, currentCommentPage - 1)}
                   disabled={currentCommentPage === 1}
                 >
-                  ←
+                  ← Anterior
                 </button>
                 <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 80, textAlign: 'center' }}>
-                  Página {currentCommentPage} de {totalCommentPages}
+                  {currentCommentPage} / {totalCommentPages}
                 </span>
                 <button
                   style={{
@@ -364,15 +384,15 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                     color: 'var(--text-secondary)',
                     borderColor: 'var(--border-light)',
                   }}
-                  onClick={() => setCommentsPage(prev => ({ ...prev, [post.id]: Math.min((prev[post.id] || 1) + 1, totalCommentPages) }))}
+                  onClick={() => changeCommentsPage(post.id, currentCommentPage + 1)}
                   disabled={currentCommentPage === totalCommentPages}
                 >
-                  →
+                  Siguiente →
                 </button>
               </div>
             )}
 
-            {/* Formulario nuevo comentario */}
+            {/* New comment form */}
             <div style={{ ...s.commentForm, borderColor: 'var(--border-light)' }}>
               <input
                 style={{ ...s.commentInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
