@@ -1,12 +1,12 @@
-// src/pages/CommunityPage.jsx - Con paginación de comentarios funcionando (5 por página)
+// src/pages/CommunityPage.jsx - Con paginación de POSTS funcionando
 
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Avatar, Tag, BookCover, Card, SectionLabel, Button } from '../components/UI';
 import { apiFetch, getBookImageUrl } from '../config/api';
 
-const PAGE_SIZE = 10;
-const COMMENTS_PER_PAGE = 5; // 5 comentarios por página
+const POSTS_PER_PAGE = 5;  // 5 posts por página
+const COMMENTS_PER_PAGE = 5;
 
 const getInitials = (name) => {
   if (!name) return '?';
@@ -68,6 +68,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalPosts, setTotalPosts] = useState(0);
   const [likedPosts, setLikedPosts] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('likedPosts') || '{}');
@@ -81,7 +82,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [newComment, setNewComment] = useState({ author: '', content: '' });
   const [commentSubmitting, setCommentSubmitting] = useState(false);
-  const [commentsPage, setCommentsPage] = useState({}); // Guarda la página actual de comentarios para cada post
+  const [commentsPage, setCommentsPage] = useState({});
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -97,14 +98,19 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const fetchPosts = async (page = 1) => {
     setLoading(true);
     try {
-      const response = await apiFetch(`/posts/${page}/${PAGE_SIZE}`);
+      const response = await apiFetch(`/posts/${page}/${POSTS_PER_PAGE}`);
       const data = await response.json();
       const normalized = (data.content || []).map(mapPost);
       setPosts(normalized);
       setTotalPages(data.total_pages || 1);
+      setTotalPosts(data.total_elements || 0);
+      
+      console.log(`Página ${page} de ${data.total_pages || 1}, Total posts: ${data.total_elements || 0}`);
     } catch (error) {
       console.error('Error fetching posts:', error);
       setPosts([]);
+      setTotalPages(1);
+      setTotalPosts(0);
     } finally {
       setLoading(false);
     }
@@ -140,8 +146,12 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       if (!response.ok) throw new Error('status ' + response.status);
       setNewPost({ author: '', title: '', body: '', tag: 'Reviews' });
       setShowNewPost(false);
-      if (currentPage === 1) fetchPosts(1);
-      else setCurrentPage(1);
+      // Volver a la primera página para ver el nuevo post
+      if (currentPage === 1) {
+        fetchPosts(1);
+      } else {
+        setCurrentPage(1);
+      }
     } catch (error) {
       console.error('Error creating post:', error);
       alert('No se pudo crear el post. Intenta de nuevo.');
@@ -193,11 +203,8 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
     setOpenComments(postId);
     setNewComment({ author: '', content: '' });
-    
-    // Resetear a página 1 cuando se abren los comentarios
     setCommentsPage(prev => ({ ...prev, [postId]: 1 }));
 
-    // Solo fetch si no tenemos los comentarios aún
     if (!commentsByPost[postId]) {
       setCommentsLoading(true);
       try {
@@ -238,7 +245,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       
       setNewComment({ author: '', content: '' });
       
-      // Ir a la última página para ver el comentario nuevo
       const newTotalPages = Math.ceil(updatedComments.length / COMMENTS_PER_PAGE);
       setCommentsPage(prev => ({ ...prev, [postId]: newTotalPages }));
       
@@ -250,7 +256,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
   };
 
-  // Función para obtener los comentarios paginados de un post
   const getPaginatedComments = (postId) => {
     const allComments = commentsByPost[postId] || [];
     const totalComments = allComments.length;
@@ -268,11 +273,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     
     const currentPageNum = commentsPage[postId] || 1;
     const totalPages = Math.ceil(totalComments / COMMENTS_PER_PAGE);
-    
-    // Asegurar que la página actual está dentro de los límites
-    let validPage = currentPageNum;
-    if (currentPageNum < 1) validPage = 1;
-    if (currentPageNum > totalPages) validPage = totalPages;
+    const validPage = Math.min(currentPageNum, totalPages);
     
     if (validPage !== currentPageNum) {
       setCommentsPage(prev => ({ ...prev, [postId]: validPage }));
@@ -301,6 +302,25 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     setCommentsPage(prev => ({ ...prev, [postId]: validPage }));
   };
 
+  // Funciones para navegación de posts
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Calcular rango de posts mostrados
+  const startPost = (currentPage - 1) * POSTS_PER_PAGE + 1;
+  const endPost = Math.min(currentPage * POSTS_PER_PAGE, totalPosts);
+
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
       <Navbar
@@ -314,7 +334,14 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
         <div style={isMobile ? s.layoutMobile : s.layout}>
           <div style={s.feed}>
             <div style={s.feedTop}>
-              <h2 style={{ ...s.feedTitle, color: 'var(--text-primary)' }}>Community</h2>
+              <div>
+                <h2 style={{ ...s.feedTitle, color: 'var(--text-primary)' }}>Community</h2>
+                {totalPosts > 0 && (
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                    Mostrando {startPost}-{endPost} de {totalPosts} posts
+                  </p>
+                )}
+              </div>
               <Button variant="primary" style={{ fontSize: 12, padding: '7px 14px' }} onClick={() => setShowNewPost(true)}>
                 + New Post
               </Button>
@@ -425,8 +452,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
 
                   {isOpen && (
                     <div style={{ ...s.commentsSection, borderColor: 'var(--border-light)' }}>
-                      
-                      {/* Cabecera con contador de comentarios */}
                       {totalCount > 0 && (
                         <div style={s.commentsHeader}>
                           <span style={{ ...s.commentsHeaderTitle, color: 'var(--text-primary)' }}>
@@ -440,17 +465,14 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                         </div>
                       )}
 
-                      {/* Estado de carga */}
                       {commentsLoading && !commentsByPost[post.id] && (
                         <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Cargando comentarios...</p>
                       )}
 
-                      {/* Estado vacío */}
                       {commentsByPost[post.id] && totalCount === 0 && (
                         <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Sé el primero en comentar.</p>
                       )}
 
-                      {/* Lista de comentarios - SOLO los de la página actual (máximo 5) */}
                       {comments.map((comment) => (
                         <div key={comment.id} style={{ ...s.commentItem, background: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
                           <Avatar initials={getInitials(comment.author)} size={30} />
@@ -464,7 +486,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                         </div>
                       ))}
 
-                      {/* Paginación - SOLO visible si hay más de 5 comentarios */}
                       {totalCommentPages > 1 && (
                         <div style={s.commentsPagination}>
                           <button
@@ -474,7 +495,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                               background: 'var(--bg-surface)',
                               color: 'var(--text-secondary)',
                               borderColor: 'var(--border-light)',
-                              cursor: currentCommentPage === 1 ? 'not-allowed' : 'pointer',
                             }}
                             onClick={() => goToCommentPage(post.id, currentCommentPage - 1)}
                             disabled={currentCommentPage === 1}
@@ -491,7 +511,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                               background: 'var(--bg-surface)',
                               color: 'var(--text-secondary)',
                               borderColor: 'var(--border-light)',
-                              cursor: currentCommentPage === totalCommentPages ? 'not-allowed' : 'pointer',
                             }}
                             onClick={() => goToCommentPage(post.id, currentCommentPage + 1)}
                             disabled={currentCommentPage === totalCommentPages}
@@ -501,7 +520,6 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                         </div>
                       )}
 
-                      {/* Formulario para nuevo comentario */}
                       <div style={{ ...s.commentForm, borderColor: 'var(--border-light)' }}>
                         <input
                           style={{ ...s.commentInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
@@ -529,25 +547,73 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               );
             })}
 
+            {/* PAGINACIÓN DE POSTS - Esta es la parte importante */}
             {!loading && totalPages > 1 && (
-              <div style={s.pagination}>
+              <div style={s.postsPagination}>
                 <button
-                  style={{ ...s.pageBtn, opacity: currentPage === 1 ? 0.4 : 1 }}
-                  onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                  style={{
+                    ...s.postsPageBtn,
+                    opacity: currentPage === 1 ? 0.4 : 1,
+                    visibility: currentPage === 1 ? 'hidden' : 'visible',
+                  }}
+                  onClick={goToPrevPage}
                   disabled={currentPage === 1}
                 >
                   ← Anterior
                 </button>
-                <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-                  Página {currentPage} de {totalPages}
-                </span>
+                
+                <div style={s.pageNumbers}>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        style={{
+                          ...s.pageNumberBtn,
+                          background: currentPage === pageNum ? 'var(--crimson)' : 'var(--bg-surface)',
+                          color: currentPage === pageNum ? '#fff' : 'var(--text-secondary)',
+                        }}
+                        onClick={() => {
+                          setCurrentPage(pageNum);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                
                 <button
-                  style={{ ...s.pageBtn, opacity: currentPage === totalPages ? 0.4 : 1 }}
-                  onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                  style={{
+                    ...s.postsPageBtn,
+                    opacity: currentPage === totalPages ? 0.4 : 1,
+                    visibility: currentPage === totalPages ? 'hidden' : 'visible',
+                  }}
+                  onClick={goToNextPage}
                   disabled={currentPage === totalPages}
                 >
                   Siguiente →
                 </button>
+              </div>
+            )}
+            
+            {/* Información de paginación simple */}
+            {!loading && totalPages > 1 && (
+              <div style={s.paginationInfo}>
+                <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                  Página {currentPage} de {totalPages}
+                </span>
               </div>
             )}
           </div>
@@ -610,8 +676,8 @@ const s = {
   layout: { display: 'grid', gridTemplateColumns: '1fr 280px', gap: 24 },
   layoutMobile: { display: 'flex', flexDirection: 'column' },
   feed: {},
-  feedTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  feedTitle: { fontFamily: "'Playfair Display', serif", fontSize: 'clamp(20px, 5vw, 22px)', fontWeight: 600 },
+  feedTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 },
+  feedTitle: { fontFamily: "'Playfair Display', serif", fontSize: 'clamp(20px, 5vw, 22px)', fontWeight: 600, margin: 0 },
 
   postCard: { border: '1px solid', borderRadius: 12, padding: '16px', marginBottom: 12, boxShadow: 'var(--shadow)' },
   postHeader: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' },
@@ -726,8 +792,49 @@ const s = {
   trendAuthor: { fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   mobileTrending: { margin: '20px 16px 0', padding: 16, border: '1px solid', borderRadius: 10 },
 
-  pagination: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 20, marginBottom: 8 },
-  pageBtn: { border: 'none', borderRadius: 20, padding: '7px 18px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontWeight: 500, background: 'var(--bg-surface)', color: 'var(--text-secondary)' },
+  // Estilos para la paginación de POSTS
+  postsPagination: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 24,
+    marginBottom: 8,
+    flexWrap: 'wrap',
+  },
+  postsPageBtn: {
+    border: '1px solid var(--border-light)',
+    borderRadius: 20,
+    padding: '8px 20px',
+    fontSize: 13,
+    cursor: 'pointer',
+    fontFamily: "'DM Sans', sans-serif",
+    fontWeight: 500,
+    background: 'var(--bg-surface)',
+    color: 'var(--text-secondary)',
+    transition: 'all 0.15s ease',
+  },
+  pageNumbers: {
+    display: 'flex',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  pageNumberBtn: {
+    border: '1px solid var(--border-light)',
+    borderRadius: 8,
+    padding: '6px 12px',
+    fontSize: 13,
+    cursor: 'pointer',
+    fontFamily: "'DM Sans', sans-serif",
+    fontWeight: 500,
+    transition: 'all 0.15s ease',
+    minWidth: 36,
+  },
+  paginationInfo: {
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
 
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
   modal: { borderRadius: 14, padding: 24, width: '90%', maxWidth: 500, boxShadow: '0 8px 32px rgba(0,0,0,0.18)' },
