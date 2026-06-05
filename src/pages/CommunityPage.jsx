@@ -149,24 +149,32 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
   };
 
-const handleLike = async (postId) => {
-  const alreadyLiked = likedPosts[postId] || false;
-  const action = alreadyLiked ? 'unlike' : 'like';
+  const handleLike = async (postId) => {
+    const alreadyLiked = likedPosts[postId] || false;
+    const action = alreadyLiked ? 'unlike' : 'like';
 
-  // Actualizar UI optimistamente
-  const updatedLiked = { ...likedPosts, [postId]: !alreadyLiked };
-  setLikedPosts(updatedLiked);
-  localStorage.setItem('likedPosts', JSON.stringify(updatedLiked));
-  setPosts(prev => prev.map(p =>
-    p.id === postId
-      ? { ...p, likes: alreadyLiked ? Math.max(p.likes - 1, 0) : p.likes + 1 }
-      : p
-  ));
+    const updatedLiked = { ...likedPosts, [postId]: !alreadyLiked };
+    setLikedPosts(updatedLiked);
+    localStorage.setItem('likedPosts', JSON.stringify(updatedLiked));
+    setPosts(prev => prev.map(p =>
+      p.id === postId
+        ? { ...p, likes: alreadyLiked ? Math.max(p.likes - 1, 0) : p.likes + 1 }
+        : p
+    ));
 
-  try {
-    const response = await apiFetch(`/posts/${postId}/like?action=${action}`, { method: 'POST' });
-    if (!response.ok) {
-      // Revertir si falla
+    try {
+      const response = await apiFetch(`/posts/${postId}/like?action=${action}`, { method: 'POST' });
+      if (!response.ok) {
+        setLikedPosts(likedPosts);
+        localStorage.setItem('likedPosts', JSON.stringify(likedPosts));
+        setPosts(prev => prev.map(p =>
+          p.id === postId
+            ? { ...p, likes: alreadyLiked ? p.likes + 1 : Math.max(p.likes - 1, 0) }
+            : p
+        ));
+      }
+    } catch (error) {
+      console.error('Error liking post:', error);
       setLikedPosts(likedPosts);
       localStorage.setItem('likedPosts', JSON.stringify(likedPosts));
       setPosts(prev => prev.map(p =>
@@ -175,17 +183,7 @@ const handleLike = async (postId) => {
           : p
       ));
     }
-  } catch (error) {
-    console.error('Error liking post:', error);
-    setLikedPosts(likedPosts);
-    localStorage.setItem('likedPosts', JSON.stringify(likedPosts));
-    setPosts(prev => prev.map(p =>
-      p.id === postId
-        ? { ...p, likes: alreadyLiked ? p.likes + 1 : Math.max(p.likes - 1, 0) }
-        : p
-    ));
-  }
-};
+  };
 
   const toggleComments = async (postId) => {
     if (openComments === postId) {
@@ -251,13 +249,15 @@ const handleLike = async (postId) => {
       totalCommentPages,
       currentCommentPage: page,
       totalCount: total,
+      rangeStart: total > 0 ? start + 1 : 0,
+      rangeEnd: Math.min(page * COMMENTS_PAGE_SIZE, total),
     };
   };
 
   const postCard = (post, idx) => {
     const liked = likedPosts[post.id] || false;
     const isOpen = openComments === post.id;
-    const { comments, totalCommentPages, currentCommentPage, totalCount } = getPagedComments(post.id);
+    const { comments, totalCommentPages, currentCommentPage, totalCount, rangeStart, rangeEnd } = getPagedComments(post.id);
 
     return (
       <div key={post.id || post.title + idx} style={{ ...s.postCard, background: 'var(--bg-secondary)', borderColor: 'var(--border-light)' }}>
@@ -301,6 +301,21 @@ const handleLike = async (postId) => {
 
         {isOpen && (
           <div style={{ ...s.commentsSection, borderColor: 'var(--border-light)' }}>
+
+            {/* Encabezado con contador */}
+            {commentsByPost[post.id] && totalCount > 0 && (
+              <div style={s.commentsHeader}>
+                <span style={{ ...s.commentsHeaderTitle, color: 'var(--text-primary)' }}>
+                  {totalCount} {totalCount === 1 ? 'comentario' : 'comentarios'}
+                </span>
+                {totalCommentPages > 1 && (
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    Mostrando {rangeStart}–{rangeEnd} de {totalCount}
+                  </span>
+                )}
+              </div>
+            )}
+
             {commentsLoading && !commentsByPost[post.id] && (
               <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Cargando comentarios...</p>
             )}
@@ -322,6 +337,7 @@ const handleLike = async (postId) => {
               </div>
             ))}
 
+            {/* Paginación */}
             {totalCommentPages > 1 && (
               <div style={s.commentsPagination}>
                 <button
@@ -337,8 +353,8 @@ const handleLike = async (postId) => {
                 >
                   ←
                 </button>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 48, textAlign: 'center' }}>
-                  {currentCommentPage} / {totalCommentPages}
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 80, textAlign: 'center' }}>
+                  Página {currentCommentPage} de {totalCommentPages}
                 </span>
                 <button
                   style={{
@@ -356,6 +372,7 @@ const handleLike = async (postId) => {
               </div>
             )}
 
+            {/* Formulario nuevo comentario */}
             <div style={{ ...s.commentForm, borderColor: 'var(--border-light)' }}>
               <input
                 style={{ ...s.commentInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
@@ -567,7 +584,9 @@ const s = {
   },
 
   commentsSection: { marginTop: 16, paddingTop: 16, borderTop: '1px solid' },
-  commentMuted: { fontSize: 12, fontStyle: 'italic', marginBottom: 12, color: 'var(--text-muted)' },
+  commentsHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  commentsHeaderTitle: { fontSize: 12, fontWeight: 600 },
+  commentMuted: { fontSize: 12, fontStyle: 'italic', marginBottom: 12 },
 
   commentItem: {
     display: 'flex',
