@@ -67,7 +67,13 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [likedPosts, setLikedPosts] = useState({});
+  const [likedPosts, setLikedPosts] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('likedPosts') || '{}');
+    } catch {
+      return {};
+    }
+  });
 
   const [openComments, setOpenComments] = useState(null);
   const [commentsByPost, setCommentsByPost] = useState({});
@@ -143,11 +149,14 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
   };
 
-  const handleLike = async (postId) => {
+const handleLike = async (postId) => {
   const alreadyLiked = likedPosts[postId] || false;
+  const action = alreadyLiked ? 'unlike' : 'like';
 
-  // Actualizar UI optimistamente antes de llamar al backend
-  setLikedPosts(prev => ({ ...prev, [postId]: !alreadyLiked }));
+  // Actualizar UI optimistamente
+  const updatedLiked = { ...likedPosts, [postId]: !alreadyLiked };
+  setLikedPosts(updatedLiked);
+  localStorage.setItem('likedPosts', JSON.stringify(updatedLiked));
   setPosts(prev => prev.map(p =>
     p.id === postId
       ? { ...p, likes: alreadyLiked ? Math.max(p.likes - 1, 0) : p.likes + 1 }
@@ -155,10 +164,11 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   ));
 
   try {
-    const response = await apiFetch(`/posts/${postId}/like`, { method: 'POST' });
+    const response = await apiFetch(`/posts/${postId}/like?action=${action}`, { method: 'POST' });
     if (!response.ok) {
-      // Si falla, revertir
-      setLikedPosts(prev => ({ ...prev, [postId]: alreadyLiked }));
+      // Revertir si falla
+      setLikedPosts(likedPosts);
+      localStorage.setItem('likedPosts', JSON.stringify(likedPosts));
       setPosts(prev => prev.map(p =>
         p.id === postId
           ? { ...p, likes: alreadyLiked ? p.likes + 1 : Math.max(p.likes - 1, 0) }
@@ -167,8 +177,8 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
   } catch (error) {
     console.error('Error liking post:', error);
-    // Revertir en caso de error de red
-    setLikedPosts(prev => ({ ...prev, [postId]: alreadyLiked }));
+    setLikedPosts(likedPosts);
+    localStorage.setItem('likedPosts', JSON.stringify(likedPosts));
     setPosts(prev => prev.map(p =>
       p.id === postId
         ? { ...p, likes: alreadyLiked ? p.likes + 1 : Math.max(p.likes - 1, 0) }
