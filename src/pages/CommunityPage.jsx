@@ -5,6 +5,7 @@ import { Avatar, Tag, BookCover, Card, SectionLabel, Button } from '../component
 import { apiFetch, getBookImageUrl } from '../config/api';
 
 const PAGE_SIZE = 10;
+const COMMENTS_PAGE_SIZE = 5;
 
 const getInitials = (name) => {
   if (!name) return '?';
@@ -44,6 +45,20 @@ const mapPost = (p) => ({
   comments: p.comments_count ?? 0,
 });
 
+// Icono de corazón SVG
+const HeartIcon = ({ filled = false, size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+  </svg>
+);
+
+// Icono de comentario SVG
+const CommentIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
 export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,13 +69,15 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [likedPosts, setLikedPosts] = useState({});
 
   // --- Estado de comentarios ---
-  const [openComments, setOpenComments] = useState(null);   // id del post abierto (o null)
-  const [commentsByPost, setCommentsByPost] = useState({}); // { [postId]: [comentarios] }
+  const [openComments, setOpenComments] = useState(null);
+  const [commentsByPost, setCommentsByPost] = useState({});
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [newComment, setNewComment] = useState({ author: '', content: '' });
   const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [commentsPage, setCommentsPage] = useState({});  // { [postId]: currentPage }
 
   const isDark = theme === 'dark';
 
@@ -137,6 +154,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       if (!response.ok) return;
       const updated = await response.json();
       setPosts(prev => prev.map(p => (p.id === postId ? { ...p, likes: updated.likes } : p)));
+      setLikedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
     } catch (error) {
       console.error('Error liking post:', error);
     }
@@ -145,12 +163,14 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   // --- Comentarios ---
   const toggleComments = async (postId) => {
     if (openComments === postId) {
-      setOpenComments(null); // ya abierto -> cerrar
+      setOpenComments(null);
       return;
     }
     setOpenComments(postId);
     setNewComment({ author: '', content: '' });
-    // cargar comentarios si aún no se han cargado
+    if (!commentsPage[postId]) {
+      setCommentsPage(prev => ({ ...prev, [postId]: 1 }));
+    }
     if (!commentsByPost[postId]) {
       setCommentsLoading(true);
       try {
@@ -179,17 +199,156 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       });
       if (!response.ok) throw new Error('status ' + response.status);
       const created = await response.json();
-      // agregar a la lista
       setCommentsByPost(prev => ({ ...prev, [postId]: [...(prev[postId] || []), created] }));
-      // subir el contador del post
       setPosts(prev => prev.map(p => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)));
       setNewComment({ author: '', content: '' });
+      // Ir a la última página de comentarios al añadir uno
+      const allComments = [...(commentsByPost[postId] || []), created];
+      const lastPage = Math.ceil(allComments.length / COMMENTS_PAGE_SIZE);
+      setCommentsPage(prev => ({ ...prev, [postId]: lastPage }));
     } catch (error) {
       console.error('Error creating comment:', error);
       alert('No se pudo enviar el comentario. Intenta de nuevo.');
     } finally {
       setCommentSubmitting(false);
     }
+  };
+
+  // Paginación de comentarios
+  const getPagedComments = (postId) => {
+    const all = commentsByPost[postId] || [];
+    const page = commentsPage[postId] || 1;
+    const start = (page - 1) * COMMENTS_PAGE_SIZE;
+    return {
+      comments: all.slice(start, start + COMMENTS_PAGE_SIZE),
+      totalCommentPages: Math.ceil(all.length / COMMENTS_PAGE_SIZE) || 1,
+      currentCommentPage: page,
+    };
+  };
+
+  const postCard = (post, idx) => {
+    const liked = likedPosts[post.id] || false;
+    const { comments, totalCommentPages, currentCommentPage } = getPagedComments(post.id);
+    const isOpen = openComments === post.id;
+
+    return (
+      <div key={post.id || post.title + idx} style={{ ...s.postCard, background: 'var(--bg-secondary)', borderColor: 'var(--border-light)' }}>
+        <div style={s.postHeader}>
+          <Avatar initials={post.initials} size={36} />
+          <div>
+            <p style={{ ...s.postAuthor, color: 'var(--text-primary)' }}>{post.name}</p>
+            <p style={{ ...s.postTime, color: 'var(--text-muted)' }}>{post.time}</p>
+          </div>
+          <Tag style={{ marginLeft: 'auto', fontSize: 10 }}>{post.tag}</Tag>
+        </div>
+        <h3 style={{ ...s.postTitle, color: 'var(--text-primary)' }}>{post.title}</h3>
+        <p style={{ ...s.postBody, color: 'var(--text-secondary)' }}>{post.body}</p>
+
+        {/* Botones de acción mejorados */}
+        <div style={s.postActions}>
+          <button
+            style={{
+              ...s.actionBtn,
+              background: liked ? 'rgba(220,38,38,0.08)' : 'var(--bg-surface)',
+              color: liked ? '#dc2626' : 'var(--text-secondary)',
+              border: liked ? '1px solid rgba(220,38,38,0.2)' : '1px solid var(--border-light)',
+            }}
+            onClick={() => handleLike(post.id)}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <HeartIcon filled={liked} size={14} />
+              <span style={{ fontSize: 12, fontWeight: 500 }}>{post.likes}</span>
+            </span>
+          </button>
+          <button
+            style={{
+              ...s.actionBtn,
+              background: isOpen ? 'rgba(79,70,229,0.08)' : 'var(--bg-surface)',
+              color: isOpen ? '#4f46e5' : 'var(--text-secondary)',
+              border: isOpen ? '1px solid rgba(79,70,229,0.2)' : '1px solid var(--border-light)',
+            }}
+            onClick={() => toggleComments(post.id)}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <CommentIcon size={14} />
+              <span style={{ fontSize: 12, fontWeight: 500 }}>{post.comments}</span>
+            </span>
+          </button>
+        </div>
+
+        {/* Acordeón de comentarios */}
+        {isOpen && (
+          <div style={{ ...s.commentsSection, borderColor: 'var(--border-light)' }}>
+            {commentsLoading && !commentsByPost[post.id] && (
+              <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Cargando comentarios...</p>
+            )}
+
+            {commentsByPost[post.id] && commentsByPost[post.id].length === 0 && (
+              <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Sé el primero en comentar.</p>
+            )}
+
+            {comments.map((c) => (
+              <div key={c.id} style={{ ...s.commentItem, borderColor: 'var(--border-light)' }}>
+                <Avatar initials={getInitials(c.author)} size={30} />
+                <div style={s.commentContent}>
+                  <div style={s.commentMeta}>
+                    <span style={{ ...s.commentAuthor, color: 'var(--text-primary)' }}>{c.author}</span>
+                    <span style={{ ...s.commentTime, color: 'var(--text-muted)' }}>{timeAgo(c.created_at)}</span>
+                  </div>
+                  <p style={{ ...s.commentText, color: 'var(--text-secondary)' }}>{c.content}</p>
+                </div>
+              </div>
+            ))}
+
+            {/* Paginación de comentarios */}
+            {totalCommentPages > 1 && (
+              <div style={s.commentsPagination}>
+                <button
+                  style={{ ...s.commentPageBtn, opacity: currentCommentPage === 1 ? 0.4 : 1, background: 'var(--bg-surface)', color: 'var(--text-secondary)', borderColor: 'var(--border-light)' }}
+                  onClick={() => setCommentsPage(prev => ({ ...prev, [post.id]: Math.max((prev[post.id] || 1) - 1, 1) }))}
+                  disabled={currentCommentPage === 1}
+                >
+                  ←
+                </button>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {currentCommentPage} / {totalCommentPages}
+                </span>
+                <button
+                  style={{ ...s.commentPageBtn, opacity: currentCommentPage === totalCommentPages ? 0.4 : 1, background: 'var(--bg-surface)', color: 'var(--text-secondary)', borderColor: 'var(--border-light)' }}
+                  onClick={() => setCommentsPage(prev => ({ ...prev, [post.id]: Math.min((prev[post.id] || 1) + 1, totalCommentPages) }))}
+                  disabled={currentCommentPage === totalCommentPages}
+                >
+                  →
+                </button>
+              </div>
+            )}
+
+            {/* Formulario nuevo comentario */}
+            <div style={{ ...s.commentForm, borderColor: 'var(--border-light)' }}>
+              <input
+                style={{ ...s.commentInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                placeholder="Tu nombre"
+                value={newComment.author}
+                onChange={(e) => setNewComment({ ...newComment, author: e.target.value })}
+              />
+              <textarea
+                style={{ ...s.commentTextarea, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                placeholder="Escribe un comentario..."
+                value={newComment.content}
+                onChange={(e) => setNewComment({ ...newComment, content: e.target.value })}
+              />
+              <button
+                style={{ ...s.commentSubmit, opacity: commentSubmitting ? 0.6 : 1 }}
+                onClick={() => handleNewComment(post.id)}
+                disabled={commentSubmitting}
+              >
+                {commentSubmitting ? 'Enviando...' : 'Comentar'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -211,6 +370,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </Button>
             </div>
 
+            {/* Modal nuevo post */}
             {showNewPost && (
               <div style={s.modalOverlay}>
                 <div style={{ ...s.modal, background: 'var(--bg-secondary)' }}>
@@ -269,82 +429,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </div>
             )}
 
-            {!loading && posts.map((post, idx) => (
-              <div key={post.id || post.title + idx} style={{ ...s.postCard, background: 'var(--bg-secondary)', borderColor: 'var(--border-light)' }}>
-                <div style={s.postHeader}>
-                  <Avatar initials={post.initials} size={36} />
-                  <div>
-                    <p style={{ ...s.postAuthor, color: 'var(--text-primary)' }}>{post.name}</p>
-                    <p style={{ ...s.postTime, color: 'var(--text-muted)' }}>{post.time}</p>
-                  </div>
-                  <Tag style={{ marginLeft: 'auto', fontSize: 10 }}>{post.tag}</Tag>
-                </div>
-                <h3 style={{ ...s.postTitle, color: 'var(--text-primary)' }}>{post.title}</h3>
-                <p style={{ ...s.postBody, color: 'var(--text-secondary)' }}>{post.body}</p>
-                <div style={s.postActions}>
-                  <button
-                    style={{ ...s.actionBtn, background: 'var(--bg-surface)', color: 'var(--text-secondary)' }}
-                    onClick={() => handleLike(post.id)}
-                  >
-                    ♥ {post.likes}
-                  </button>
-                  <button
-                    style={{ ...s.actionBtn, background: openComments === post.id ? 'var(--crimson)' : 'var(--bg-surface)', color: openComments === post.id ? '#fff' : 'var(--text-secondary)' }}
-                    onClick={() => toggleComments(post.id)}
-                  >
-                    💬 {post.comments}
-                  </button>
-                </div>
-
-                {/* --- Acordeón de comentarios --- */}
-                {openComments === post.id && (
-                  <div style={{ ...s.commentsSection, borderColor: 'var(--border-light)' }}>
-                    {commentsLoading && !commentsByPost[post.id] && (
-                      <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Cargando comentarios...</p>
-                    )}
-
-                    {commentsByPost[post.id] && commentsByPost[post.id].length === 0 && (
-                      <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Sé el primero en comentar.</p>
-                    )}
-
-                    {(commentsByPost[post.id] || []).map((c) => (
-                      <div key={c.id} style={s.commentItem}>
-                        <Avatar initials={getInitials(c.author)} size={28} />
-                        <div style={s.commentContent}>
-                          <p style={{ ...s.commentAuthor, color: 'var(--text-primary)' }}>
-                            {c.author} <span style={{ ...s.commentTime, color: 'var(--text-muted)' }}>· {timeAgo(c.created_at)}</span>
-                          </p>
-                          <p style={{ ...s.commentText, color: 'var(--text-secondary)' }}>{c.content}</p>
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Formulario nuevo comentario */}
-                    <div style={s.commentForm}>
-                      <input
-                        style={{ ...s.commentInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
-                        placeholder="Tu nombre"
-                        value={newComment.author}
-                        onChange={(e) => setNewComment({ ...newComment, author: e.target.value })}
-                      />
-                      <textarea
-                        style={{ ...s.commentTextarea, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
-                        placeholder="Escribe un comentario..."
-                        value={newComment.content}
-                        onChange={(e) => setNewComment({ ...newComment, content: e.target.value })}
-                      />
-                      <button
-                        style={{ ...s.commentSubmit, opacity: commentSubmitting ? 0.6 : 1 }}
-                        onClick={() => handleNewComment(post.id)}
-                        disabled={commentSubmitting}
-                      >
-                        {commentSubmitting ? 'Enviando...' : 'Comentar'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+            {!loading && posts.map((post, idx) => postCard(post, idx))}
 
             {!loading && totalPages > 1 && (
               <div style={s.pagination}>
@@ -429,43 +514,135 @@ const s = {
   feed: {},
   feedTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   feedTitle: { fontFamily: "'Playfair Display', serif", fontSize: 'clamp(20px, 5vw, 22px)', fontWeight: 600 },
-  postCard: { border: '1px solid', borderRadius: 10, padding: '14px', marginBottom: 12, boxShadow: 'var(--shadow)' },
+
+  postCard: { border: '1px solid', borderRadius: 12, padding: '16px', marginBottom: 12, boxShadow: 'var(--shadow)' },
   postHeader: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' },
   postAuthor: { fontWeight: 500, fontSize: 13 },
   postTime: { fontSize: 11 },
   postTitle: { fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 600, marginBottom: 8, lineHeight: 1.3 },
   postBody: { fontSize: 13, lineHeight: 1.65, marginBottom: 14 },
   postActions: { display: 'flex', gap: 8, flexWrap: 'wrap' },
-  actionBtn: { border: 'none', borderRadius: 16, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontWeight: 500 },
-  commentsSection: { marginTop: 14, paddingTop: 14, borderTop: '1px solid' },
+
+  // Botones de acción rediseñados
+  actionBtn: {
+    border: '1px solid',
+    borderRadius: 20,
+    padding: '6px 14px',
+    fontSize: 13,
+    cursor: 'pointer',
+    fontFamily: "'DM Sans', sans-serif",
+    fontWeight: 500,
+    display: 'inline-flex',
+    alignItems: 'center',
+    transition: 'all 0.15s ease',
+  },
+
+  // Sección de comentarios
+  commentsSection: { marginTop: 16, paddingTop: 16, borderTop: '1px solid' },
   commentMuted: { fontSize: 12, fontStyle: 'italic', marginBottom: 12 },
-  commentItem: { display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-start' },
+
+  commentItem: {
+    display: 'flex',
+    gap: 10,
+    marginBottom: 12,
+    alignItems: 'flex-start',
+    padding: '10px 12px',
+    borderRadius: 8,
+    border: '1px solid',
+    background: 'var(--bg-primary)',
+  },
   commentContent: { flex: 1, minWidth: 0 },
-  commentAuthor: { fontSize: 12, fontWeight: 600, marginBottom: 2 },
-  commentTime: { fontSize: 11, fontWeight: 400 },
-  commentText: { fontSize: 13, lineHeight: 1.5 },
-  commentForm: { marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 },
-  commentInput: { width: '100%', padding: '8px 10px', border: '1.5px solid', borderRadius: 6, fontSize: 12, fontFamily: "'DM Sans', sans-serif" },
-  commentTextarea: { width: '100%', padding: '8px 10px', border: '1.5px solid', borderRadius: 6, fontSize: 12, minHeight: 60, fontFamily: "'DM Sans', sans-serif" },
-  commentSubmit: { alignSelf: 'flex-end', padding: '7px 16px', background: 'var(--crimson)', color: '#fff', border: 'none', borderRadius: 16, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif", fontWeight: 500 },
+  commentMeta: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 },
+  commentAuthor: { fontSize: 12, fontWeight: 600 },
+  commentTime: { fontSize: 11 },
+  commentText: { fontSize: 13, lineHeight: 1.5, margin: 0 },
+
+  // Paginación de comentarios
+  commentsPagination: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  commentPageBtn: {
+    border: '1px solid',
+    borderRadius: 20,
+    padding: '4px 14px',
+    fontSize: 13,
+    cursor: 'pointer',
+    fontFamily: "'DM Sans', sans-serif",
+    fontWeight: 500,
+    transition: 'all 0.15s ease',
+  },
+
+  // Formulario de comentario
+  commentForm: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTop: '1px solid',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  commentInput: {
+    width: '100%',
+    padding: '8px 10px',
+    border: '1.5px solid',
+    borderRadius: 8,
+    fontSize: 12,
+    fontFamily: "'DM Sans', sans-serif",
+    outline: 'none',
+    boxSizing: 'border-box',
+  },
+  commentTextarea: {
+    width: '100%',
+    padding: '8px 10px',
+    border: '1.5px solid',
+    borderRadius: 8,
+    fontSize: 12,
+    minHeight: 72,
+    fontFamily: "'DM Sans', sans-serif",
+    resize: 'vertical',
+    outline: 'none',
+    boxSizing: 'border-box',
+  },
+  commentSubmit: {
+    alignSelf: 'flex-end',
+    padding: '7px 18px',
+    background: 'var(--crimson)',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 20,
+    cursor: 'pointer',
+    fontSize: 12,
+    fontFamily: "'DM Sans', sans-serif",
+    fontWeight: 500,
+    letterSpacing: '0.01em',
+  },
+
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px', gap: 10, textAlign: 'center' },
   emptyTitle: { fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600, margin: 0 },
   emptySubtitle: { fontSize: 13, margin: 0 },
+
   sidebar: {},
   trendItem: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, cursor: 'pointer' },
   trendInfo: { flex: 1, minWidth: 0 },
   trendTitle: { fontSize: 12, fontWeight: 500, marginBottom: 2, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   trendAuthor: { fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   mobileTrending: { margin: '20px 16px 0', padding: 16, border: '1px solid', borderRadius: 10 },
+
   pagination: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 20, marginBottom: 8 },
-  pageBtn: { border: 'none', borderRadius: 16, padding: '7px 16px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontWeight: 500, background: 'var(--bg-surface)', color: 'var(--text-secondary)' },
+  pageBtn: { border: 'none', borderRadius: 20, padding: '7px 18px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontWeight: 500, background: 'var(--bg-surface)', color: 'var(--text-secondary)' },
+
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
-  modal: { borderRadius: 12, padding: 20, width: '90%', maxWidth: 500 },
+  modal: { borderRadius: 14, padding: 24, width: '90%', maxWidth: 500, boxShadow: '0 8px 32px rgba(0,0,0,0.18)' },
   modalTitle: { fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600, marginBottom: 16 },
-  modalInput: { width: '100%', padding: '10px 12px', border: '1.5px solid', borderRadius: 6, fontSize: 13, marginBottom: 12, fontFamily: "'DM Sans', sans-serif" },
-  modalTextarea: { width: '100%', padding: '10px 12px', border: '1.5px solid', borderRadius: 6, fontSize: 13, minHeight: 100, marginBottom: 12, fontFamily: "'DM Sans', sans-serif" },
-  modalSelect: { width: '100%', padding: '10px 12px', border: '1.5px solid', borderRadius: 6, fontSize: 13, marginBottom: 16, fontFamily: "'DM Sans', sans-serif" },
+  modalInput: { width: '100%', padding: '10px 12px', border: '1.5px solid', borderRadius: 8, fontSize: 13, marginBottom: 12, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' },
+  modalTextarea: { width: '100%', padding: '10px 12px', border: '1.5px solid', borderRadius: 8, fontSize: 13, minHeight: 100, marginBottom: 12, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none', resize: 'vertical' },
+  modalSelect: { width: '100%', padding: '10px 12px', border: '1.5px solid', borderRadius: 8, fontSize: 13, marginBottom: 16, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' },
   modalActions: { display: 'flex', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap' },
-  modalCancel: { padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" },
-  modalSubmit: { padding: '8px 16px', background: 'var(--crimson)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" },
+  modalCancel: { padding: '8px 18px', border: 'none', borderRadius: 8, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" },
+  modalSubmit: { padding: '8px 18px', background: 'var(--crimson)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" },
 };
