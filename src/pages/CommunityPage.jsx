@@ -6,7 +6,6 @@ import { apiFetch, getBookImageUrl } from '../config/api';
 
 const PAGE_SIZE = 10;
 
-// El microservicio no manda initials ni "time"; los generamos en el front.
 const getInitials = (name) => {
   if (!name) return '?';
   const parts = name.trim().split(/\s+/);
@@ -16,7 +15,7 @@ const getInitials = (name) => {
 const timeAgo = (iso) => {
   if (!iso) return '';
   let str = iso;
-  if (!/[zZ]|[+-]\d{2}:\d{2}$/.test(str)) str += 'Z'; // el micro guarda UTC sin zona
+  if (!/[zZ]|[+-]\d{2}:\d{2}$/.test(str)) str += 'Z';
   const then = new Date(str);
   if (isNaN(then.getTime())) return '';
   let secs = Math.floor((Date.now() - then.getTime()) / 1000);
@@ -53,8 +52,16 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [submitting, setSubmitting] = useState(false);
   const [trendingBooks, setTrendingBooks] = useState([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [currentPage, setCurrentPage] = useState(1); // base 1 (el micro espera /posts/1/10)
+  const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  // --- Estado de comentarios ---
+  const [openComments, setOpenComments] = useState(null);   // id del post abierto (o null)
+  const [commentsByPost, setCommentsByPost] = useState({}); // { [postId]: [comentarios] }
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [newComment, setNewComment] = useState({ author: '', content: '' });
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+
   const isDark = theme === 'dark';
 
   useEffect(() => {
@@ -114,11 +121,8 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       if (!response.ok) throw new Error('status ' + response.status);
       setNewPost({ author: '', title: '', body: '', tag: 'Reviews' });
       setShowNewPost(false);
-      if (currentPage === 1) {
-        fetchPosts(1); // ya estamos en la página 1: recargar
-      } else {
-        setCurrentPage(1); // ir a la página 1 (dispara el useEffect)
-      }
+      if (currentPage === 1) fetchPosts(1);
+      else setCurrentPage(1);
     } catch (error) {
       console.error('Error creating post:', error);
       alert('No se pudo crear el post. Intenta de nuevo.');
@@ -135,6 +139,56 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       setPosts(prev => prev.map(p => (p.id === postId ? { ...p, likes: updated.likes } : p)));
     } catch (error) {
       console.error('Error liking post:', error);
+    }
+  };
+
+  // --- Comentarios ---
+  const toggleComments = async (postId) => {
+    if (openComments === postId) {
+      setOpenComments(null); // ya abierto -> cerrar
+      return;
+    }
+    setOpenComments(postId);
+    setNewComment({ author: '', content: '' });
+    // cargar comentarios si aún no se han cargado
+    if (!commentsByPost[postId]) {
+      setCommentsLoading(true);
+      try {
+        const response = await apiFetch(`/posts/${postId}/comments`);
+        const data = await response.json();
+        setCommentsByPost(prev => ({ ...prev, [postId]: Array.isArray(data) ? data : [] }));
+      } catch (error) {
+        console.error('Error fetching comments:', error);
+        setCommentsByPost(prev => ({ ...prev, [postId]: [] }));
+      } finally {
+        setCommentsLoading(false);
+      }
+    }
+  };
+
+  const handleNewComment = async (postId) => {
+    if (!newComment.author.trim() || !newComment.content.trim()) {
+      alert('Escribe tu nombre y un comentario');
+      return;
+    }
+    setCommentSubmitting(true);
+    try {
+      const response = await apiFetch(`/posts/${postId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ author: newComment.author, content: newComment.content }),
+      });
+      if (!response.ok) throw new Error('status ' + response.status);
+      const created = await response.json();
+      // agregar a la lista
+      setCommentsByPost(prev => ({ ...prev, [postId]: [...(prev[postId] || []), created] }));
+      // subir el contador del post
+      setPosts(prev => prev.map(p => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)));
+      setNewComment({ author: '', content: '' });
+    } catch (error) {
+      console.error('Error creating comment:', error);
+      alert('No se pudo enviar el comentario. Intenta de nuevo.');
+    } finally {
+      setCommentSubmitting(false);
     }
   };
 
@@ -234,10 +288,61 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                   >
                     ♥ {post.likes}
                   </button>
-                  <button style={{ ...s.actionBtn, background: 'var(--bg-surface)', color: 'var(--text-secondary)' }}>
+                  <button
+                    style={{ ...s.actionBtn, background: openComments === post.id ? 'var(--crimson)' : 'var(--bg-surface)', color: openComments === post.id ? '#fff' : 'var(--text-secondary)' }}
+                    onClick={() => toggleComments(post.id)}
+                  >
                     💬 {post.comments}
                   </button>
                 </div>
+
+                {/* --- Acordeón de comentarios --- */}
+                {openComments === post.id && (
+                  <div style={{ ...s.commentsSection, borderColor: 'var(--border-light)' }}>
+                    {commentsLoading && !commentsByPost[post.id] && (
+                      <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Cargando comentarios...</p>
+                    )}
+
+                    {commentsByPost[post.id] && commentsByPost[post.id].length === 0 && (
+                      <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Sé el primero en comentar.</p>
+                    )}
+
+                    {(commentsByPost[post.id] || []).map((c) => (
+                      <div key={c.id} style={s.commentItem}>
+                        <Avatar initials={getInitials(c.author)} size={28} />
+                        <div style={s.commentContent}>
+                          <p style={{ ...s.commentAuthor, color: 'var(--text-primary)' }}>
+                            {c.author} <span style={{ ...s.commentTime, color: 'var(--text-muted)' }}>· {timeAgo(c.created_at)}</span>
+                          </p>
+                          <p style={{ ...s.commentText, color: 'var(--text-secondary)' }}>{c.content}</p>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Formulario nuevo comentario */}
+                    <div style={s.commentForm}>
+                      <input
+                        style={{ ...s.commentInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                        placeholder="Tu nombre"
+                        value={newComment.author}
+                        onChange={(e) => setNewComment({ ...newComment, author: e.target.value })}
+                      />
+                      <textarea
+                        style={{ ...s.commentTextarea, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                        placeholder="Escribe un comentario..."
+                        value={newComment.content}
+                        onChange={(e) => setNewComment({ ...newComment, content: e.target.value })}
+                      />
+                      <button
+                        style={{ ...s.commentSubmit, opacity: commentSubmitting ? 0.6 : 1 }}
+                        onClick={() => handleNewComment(post.id)}
+                        disabled={commentSubmitting}
+                      >
+                        {commentSubmitting ? 'Enviando...' : 'Comentar'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 
@@ -332,6 +437,17 @@ const s = {
   postBody: { fontSize: 13, lineHeight: 1.65, marginBottom: 14 },
   postActions: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   actionBtn: { border: 'none', borderRadius: 16, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontWeight: 500 },
+  commentsSection: { marginTop: 14, paddingTop: 14, borderTop: '1px solid' },
+  commentMuted: { fontSize: 12, fontStyle: 'italic', marginBottom: 12 },
+  commentItem: { display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-start' },
+  commentContent: { flex: 1, minWidth: 0 },
+  commentAuthor: { fontSize: 12, fontWeight: 600, marginBottom: 2 },
+  commentTime: { fontSize: 11, fontWeight: 400 },
+  commentText: { fontSize: 13, lineHeight: 1.5 },
+  commentForm: { marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 },
+  commentInput: { width: '100%', padding: '8px 10px', border: '1.5px solid', borderRadius: 6, fontSize: 12, fontFamily: "'DM Sans', sans-serif" },
+  commentTextarea: { width: '100%', padding: '8px 10px', border: '1.5px solid', borderRadius: 6, fontSize: 12, minHeight: 60, fontFamily: "'DM Sans', sans-serif" },
+  commentSubmit: { alignSelf: 'flex-end', padding: '7px 16px', background: 'var(--crimson)', color: '#fff', border: 'none', borderRadius: 16, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif", fontWeight: 500 },
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px', gap: 10, textAlign: 'center' },
   emptyTitle: { fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600, margin: 0 },
   emptySubtitle: { fontSize: 13, margin: 0 },
