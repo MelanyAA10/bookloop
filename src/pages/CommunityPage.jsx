@@ -144,16 +144,38 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   };
 
   const handleLike = async (postId) => {
-    try {
-      const response = await apiFetch(`/posts/${postId}/like`, { method: 'POST' });
-      if (!response.ok) return;
-      const updated = await response.json();
-      setPosts(prev => prev.map(p => (p.id === postId ? { ...p, likes: updated.likes } : p)));
-      setLikedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
-    } catch (error) {
-      console.error('Error liking post:', error);
+  const alreadyLiked = likedPosts[postId] || false;
+
+  // Actualizar UI optimistamente antes de llamar al backend
+  setLikedPosts(prev => ({ ...prev, [postId]: !alreadyLiked }));
+  setPosts(prev => prev.map(p =>
+    p.id === postId
+      ? { ...p, likes: alreadyLiked ? Math.max(p.likes - 1, 0) : p.likes + 1 }
+      : p
+  ));
+
+  try {
+    const response = await apiFetch(`/posts/${postId}/like`, { method: 'POST' });
+    if (!response.ok) {
+      // Si falla, revertir
+      setLikedPosts(prev => ({ ...prev, [postId]: alreadyLiked }));
+      setPosts(prev => prev.map(p =>
+        p.id === postId
+          ? { ...p, likes: alreadyLiked ? p.likes + 1 : Math.max(p.likes - 1, 0) }
+          : p
+      ));
     }
-  };
+  } catch (error) {
+    console.error('Error liking post:', error);
+    // Revertir en caso de error de red
+    setLikedPosts(prev => ({ ...prev, [postId]: alreadyLiked }));
+    setPosts(prev => prev.map(p =>
+      p.id === postId
+        ? { ...p, likes: alreadyLiked ? p.likes + 1 : Math.max(p.likes - 1, 0) }
+        : p
+    ));
+  }
+};
 
   const toggleComments = async (postId) => {
     if (openComments === postId) {
