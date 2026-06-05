@@ -1,12 +1,27 @@
-// src/pages/CommunityPage.jsx - Con paginación de POSTS funcionando
+// src/pages/CommunityPage.jsx - Sin campos de nombre (usuario autenticado)
 
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Avatar, Tag, BookCover, Card, SectionLabel, Button } from '../components/UI';
 import { apiFetch, getBookImageUrl } from '../config/api';
 
-const POSTS_PER_PAGE = 5;  // 5 posts por página
-const COMMENTS_PER_PAGE = 5;
+const PAGE_SIZE = 5;
+const COMMENTS_PAGE_SIZE = 5;
+
+// <--- NUEVO: Obtener usuario actual (ajusta según tu sistema de autenticación) --->
+const getCurrentUser = () => {
+  // Opción 1: Desde localStorage
+  const user = localStorage.getItem('user');
+  if (user) {
+    try {
+      return JSON.parse(user);
+    } catch {
+      return null;
+    }
+  }
+  // Opción 2: Usuario por defecto o desde contexto
+  return { name: 'Usuario', initials: 'US' };
+};
 
 const getInitials = (name) => {
   if (!name) return '?';
@@ -62,7 +77,8 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNewPost, setShowNewPost] = useState(false);
-  const [newPost, setNewPost] = useState({ author: '', title: '', body: '', tag: 'Reviews' });
+  // <--- ELIMINADO: campo author del nuevo post --->
+  const [newPost, setNewPost] = useState({ title: '', body: '', tag: 'Reviews' });
   const [submitting, setSubmitting] = useState(false);
   const [trendingBooks, setTrendingBooks] = useState([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -80,9 +96,12 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [openComments, setOpenComments] = useState(null);
   const [commentsByPost, setCommentsByPost] = useState({});
   const [commentsLoading, setCommentsLoading] = useState(false);
-  const [newComment, setNewComment] = useState({ author: '', content: '' });
+  // <--- ELIMINADO: campo author del nuevo comentario --->
+  const [newComment, setNewComment] = useState({ content: '' });
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [commentsPage, setCommentsPage] = useState({});
+
+  const currentUser = getCurrentUser();  // <--- NUEVO: usuario actual
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -98,19 +117,15 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const fetchPosts = async (page = 1) => {
     setLoading(true);
     try {
-      const response = await apiFetch(`/posts/${page}/${POSTS_PER_PAGE}`);
+      const response = await apiFetch(`/posts/${page}/${PAGE_SIZE}`);
       const data = await response.json();
       const normalized = (data.content || []).map(mapPost);
       setPosts(normalized);
       setTotalPages(data.total_pages || 1);
       setTotalPosts(data.total_elements || 0);
-      
-      console.log(`Página ${page} de ${data.total_pages || 1}, Total posts: ${data.total_elements || 0}`);
     } catch (error) {
       console.error('Error fetching posts:', error);
       setPosts([]);
-      setTotalPages(1);
-      setTotalPosts(0);
     } finally {
       setLoading(false);
     }
@@ -128,8 +143,9 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   };
 
   const handleNewPost = async () => {
-    if (!newPost.author.trim() || !newPost.title.trim() || !newPost.body.trim()) {
-      alert('Por favor completa autor, título y contenido');
+    // <--- MODIFICADO: usa currentUser.name en lugar de campo manual --->
+    if (!currentUser?.name || !newPost.title.trim() || !newPost.body.trim()) {
+      alert('Por favor completa título y contenido');
       return;
     }
     setSubmitting(true);
@@ -137,21 +153,17 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       const response = await apiFetch('/posts', {
         method: 'POST',
         body: JSON.stringify({
-          author: newPost.author,
+          author: currentUser.name,  // <--- USA EL USUARIO ACTUAL
           category: newPost.tag,
           title: newPost.title,
           content: newPost.body,
         }),
       });
       if (!response.ok) throw new Error('status ' + response.status);
-      setNewPost({ author: '', title: '', body: '', tag: 'Reviews' });
+      setNewPost({ title: '', body: '', tag: 'Reviews' });
       setShowNewPost(false);
-      // Volver a la primera página para ver el nuevo post
-      if (currentPage === 1) {
-        fetchPosts(1);
-      } else {
-        setCurrentPage(1);
-      }
+      if (currentPage === 1) fetchPosts(1);
+      else setCurrentPage(1);
     } catch (error) {
       console.error('Error creating post:', error);
       alert('No se pudo crear el post. Intenta de nuevo.');
@@ -202,7 +214,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       return;
     }
     setOpenComments(postId);
-    setNewComment({ author: '', content: '' });
+    setNewComment({ content: '' });  // <--- MODIFICADO: solo content
     setCommentsPage(prev => ({ ...prev, [postId]: 1 }));
 
     if (!commentsByPost[postId]) {
@@ -210,8 +222,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       try {
         const response = await apiFetch(`/posts/${postId}/comments`);
         const data = await response.json();
-        const commentsArray = Array.isArray(data) ? data : [];
-        setCommentsByPost(prev => ({ ...prev, [postId]: commentsArray }));
+        setCommentsByPost(prev => ({ ...prev, [postId]: Array.isArray(data) ? data : [] }));
       } catch (error) {
         console.error('Error fetching comments:', error);
         setCommentsByPost(prev => ({ ...prev, [postId]: [] }));
@@ -222,32 +233,30 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   };
 
   const handleNewComment = async (postId) => {
-    if (!newComment.author.trim() || !newComment.content.trim()) {
-      alert('Escribe tu nombre y un comentario');
+    // <--- MODIFICADO: usa currentUser.name en lugar de campo manual --->
+    if (!currentUser?.name || !newComment.content.trim()) {
+      alert('Escribe un comentario');
       return;
     }
     setCommentSubmitting(true);
     try {
       const response = await apiFetch(`/posts/${postId}/comments`, {
         method: 'POST',
-        body: JSON.stringify({ author: newComment.author, content: newComment.content }),
+        body: JSON.stringify({ 
+          author: currentUser.name,  // <--- USA EL USUARIO ACTUAL
+          content: newComment.content 
+        }),
       });
       if (!response.ok) throw new Error('status ' + response.status);
       const created = await response.json();
 
-      const currentComments = commentsByPost[postId] || [];
-      const updatedComments = [...currentComments, created];
+      const updatedComments = [...(commentsByPost[postId] || []), created];
       setCommentsByPost(prev => ({ ...prev, [postId]: updatedComments }));
-      
-      setPosts(prev => prev.map(p => 
-        p.id === postId ? { ...p, comments: p.comments + 1 } : p
-      ));
-      
-      setNewComment({ author: '', content: '' });
-      
-      const newTotalPages = Math.ceil(updatedComments.length / COMMENTS_PER_PAGE);
-      setCommentsPage(prev => ({ ...prev, [postId]: newTotalPages }));
-      
+      setPosts(prev => prev.map(p => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)));
+      setNewComment({ content: '' });  // <--- MODIFICADO: solo content
+
+      const lastPage = Math.ceil(updatedComments.length / COMMENTS_PAGE_SIZE);
+      setCommentsPage(prev => ({ ...prev, [postId]: lastPage }));
     } catch (error) {
       console.error('Error creating comment:', error);
       alert('No se pudo enviar el comentario. Intenta de nuevo.');
@@ -256,53 +265,22 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
   };
 
-  const getPaginatedComments = (postId) => {
-    const allComments = commentsByPost[postId] || [];
-    const totalComments = allComments.length;
-    
-    if (totalComments === 0) {
-      return {
-        comments: [],
-        totalPages: 1,
-        currentPage: 1,
-        totalCount: 0,
-        startIndex: 0,
-        endIndex: 0,
-      };
-    }
-    
-    const currentPageNum = commentsPage[postId] || 1;
-    const totalPages = Math.ceil(totalComments / COMMENTS_PER_PAGE);
-    const validPage = Math.min(currentPageNum, totalPages);
-    
-    if (validPage !== currentPageNum) {
-      setCommentsPage(prev => ({ ...prev, [postId]: validPage }));
-    }
-    
-    const startIndex = (validPage - 1) * COMMENTS_PER_PAGE;
-    const endIndex = Math.min(startIndex + COMMENTS_PER_PAGE, totalComments);
-    const paginatedComments = allComments.slice(startIndex, endIndex);
-    
+  const getPagedComments = (postId) => {
+    const all = commentsByPost[postId] || [];
+    const page = commentsPage[postId] || 1;
+    const total = all.length;
+    const totalCommentPages = total > 0 ? Math.ceil(total / COMMENTS_PAGE_SIZE) : 1;
+    const start = (page - 1) * COMMENTS_PAGE_SIZE;
     return {
-      comments: paginatedComments,
-      totalPages: totalPages,
-      currentPage: validPage,
-      totalCount: totalComments,
-      startIndex: startIndex,
-      endIndex: endIndex,
+      comments: all.slice(start, start + COMMENTS_PAGE_SIZE),
+      totalCommentPages,
+      currentCommentPage: page,
+      totalCount: total,
+      rangeStart: total > 0 ? start + 1 : 0,
+      rangeEnd: Math.min(page * COMMENTS_PAGE_SIZE, total),
     };
   };
 
-  const goToCommentPage = (postId, newPage) => {
-    const allComments = commentsByPost[postId] || [];
-    const totalPages = Math.ceil(allComments.length / COMMENTS_PER_PAGE);
-    let validPage = newPage;
-    if (validPage < 1) validPage = 1;
-    if (validPage > totalPages) validPage = totalPages;
-    setCommentsPage(prev => ({ ...prev, [postId]: validPage }));
-  };
-
-  // Funciones para navegación de posts
   const goToNextPage = () => {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
@@ -317,9 +295,145 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
   };
 
-  // Calcular rango de posts mostrados
-  const startPost = (currentPage - 1) * POSTS_PER_PAGE + 1;
-  const endPost = Math.min(currentPage * POSTS_PER_PAGE, totalPosts);
+  const startPost = (currentPage - 1) * PAGE_SIZE + 1;
+  const endPost = Math.min(currentPage * PAGE_SIZE, totalPosts);
+
+  const postCard = (post, idx) => {
+    const liked = likedPosts[post.id] || false;
+    const isOpen = openComments === post.id;
+    const { comments, totalCommentPages, currentCommentPage, totalCount, rangeStart, rangeEnd } = getPagedComments(post.id);
+
+    return (
+      <div key={post.id || post.title + idx} style={{ ...s.postCard, background: 'var(--bg-secondary)', borderColor: 'var(--border-light)' }}>
+        <div style={s.postHeader}>
+          <Avatar initials={post.initials} size={36} />
+          <div>
+            <p style={{ ...s.postAuthor, color: 'var(--text-primary)' }}>{post.name}</p>
+            <p style={{ ...s.postTime, color: 'var(--text-muted)' }}>{post.time}</p>
+          </div>
+          <Tag style={{ marginLeft: 'auto', fontSize: 10 }}>{post.tag}</Tag>
+        </div>
+        <h3 style={{ ...s.postTitle, color: 'var(--text-primary)' }}>{post.title}</h3>
+        <p style={{ ...s.postBody, color: 'var(--text-secondary)' }}>{post.body}</p>
+
+        <div style={s.postActions}>
+          <button
+            style={{
+              ...s.actionBtn,
+              background: liked ? 'rgba(220,38,38,0.08)' : 'var(--bg-surface)',
+              color: liked ? '#dc2626' : 'var(--text-secondary)',
+              border: liked ? '1px solid rgba(220,38,38,0.2)' : '1px solid var(--border-light)',
+            }}
+            onClick={() => handleLike(post.id)}
+          >
+            <HeartIcon filled={liked} size={14} />
+            <span style={{ fontSize: 12, fontWeight: 500 }}>{post.likes}</span>
+          </button>
+          <button
+            style={{
+              ...s.actionBtn,
+              background: isOpen ? 'rgba(79,70,229,0.08)' : 'var(--bg-surface)',
+              color: isOpen ? '#4f46e5' : 'var(--text-secondary)',
+              border: isOpen ? '1px solid rgba(79,70,229,0.2)' : '1px solid var(--border-light)',
+            }}
+            onClick={() => toggleComments(post.id)}
+          >
+            <CommentIcon size={14} />
+            <span style={{ fontSize: 12, fontWeight: 500 }}>{post.comments}</span>
+          </button>
+        </div>
+
+        {isOpen && (
+          <div style={{ ...s.commentsSection, borderColor: 'var(--border-light)' }}>
+            {commentsByPost[post.id] && totalCount > 0 && (
+              <div style={s.commentsHeader}>
+                <span style={{ ...s.commentsHeaderTitle, color: 'var(--text-primary)' }}>
+                  {totalCount} {totalCount === 1 ? 'comentario' : 'comentarios'}
+                </span>
+                {totalCommentPages > 1 && (
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    Mostrando {rangeStart}–{rangeEnd} de {totalCount}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {commentsLoading && !commentsByPost[post.id] && (
+              <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Cargando comentarios...</p>
+            )}
+
+            {commentsByPost[post.id] && totalCount === 0 && (
+              <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Sé el primero en comentar.</p>
+            )}
+
+            {comments.map((c) => (
+              <div key={c.id} style={{ ...s.commentItem, background: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
+                <Avatar initials={getInitials(c.author)} size={30} />
+                <div style={s.commentContent}>
+                  <div style={s.commentMeta}>
+                    <span style={{ ...s.commentAuthor, color: 'var(--text-primary)' }}>{c.author}</span>
+                    <span style={{ ...s.commentTime, color: 'var(--text-muted)' }}>{timeAgo(c.created_at)}</span>
+                  </div>
+                  <p style={{ ...s.commentText, color: 'var(--text-secondary)' }}>{c.content}</p>
+                </div>
+              </div>
+            ))}
+
+            {totalCommentPages > 1 && (
+              <div style={s.commentsPagination}>
+                <button
+                  style={{
+                    ...s.commentPageBtn,
+                    opacity: currentCommentPage === 1 ? 0.35 : 1,
+                    background: 'var(--bg-surface)',
+                    color: 'var(--text-secondary)',
+                    borderColor: 'var(--border-light)',
+                  }}
+                  onClick={() => setCommentsPage(prev => ({ ...prev, [post.id]: Math.max((prev[post.id] || 1) - 1, 1) }))}
+                  disabled={currentCommentPage === 1}
+                >
+                  ←
+                </button>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 80, textAlign: 'center' }}>
+                  Página {currentCommentPage} de {totalCommentPages}
+                </span>
+                <button
+                  style={{
+                    ...s.commentPageBtn,
+                    opacity: currentCommentPage === totalCommentPages ? 0.35 : 1,
+                    background: 'var(--bg-surface)',
+                    color: 'var(--text-secondary)',
+                    borderColor: 'var(--border-light)',
+                  }}
+                  onClick={() => setCommentsPage(prev => ({ ...prev, [post.id]: Math.min((prev[post.id] || 1) + 1, totalCommentPages) }))}
+                  disabled={currentCommentPage === totalCommentPages}
+                >
+                  →
+                </button>
+              </div>
+            )}
+
+            {/* <--- MODIFICADO: formulario sin campo de nombre ---> */}
+            <div style={{ ...s.commentForm, borderColor: 'var(--border-light)' }}>
+              <textarea
+                style={{ ...s.commentTextarea, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                placeholder="Escribe un comentario como {currentUser?.name || 'Usuario'}..."
+                value={newComment.content}
+                onChange={(e) => setNewComment({ content: e.target.value })}
+              />
+              <button
+                style={{ ...s.commentSubmit, opacity: commentSubmitting ? 0.6 : 1 }}
+                onClick={() => handleNewComment(post.id)}
+                disabled={commentSubmitting}
+              >
+                {commentSubmitting ? 'Enviando...' : 'Comentar'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
@@ -347,16 +461,11 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </Button>
             </div>
 
+            {/* <--- MODIFICADO: modal sin campo "Your name" ---> */}
             {showNewPost && (
               <div style={s.modalOverlay}>
                 <div style={{ ...s.modal, background: 'var(--bg-secondary)' }}>
                   <h3 style={{ ...s.modalTitle, color: 'var(--text-primary)' }}>Create New Post</h3>
-                  <input
-                    style={{ ...s.modalInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
-                    placeholder="Your name"
-                    value={newPost.author}
-                    onChange={(e) => setNewPost({ ...newPost, author: e.target.value })}
-                  />
                   <input
                     style={{ ...s.modalInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
                     placeholder="Title"
@@ -405,216 +514,70 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </div>
             )}
 
-            {!loading && posts.map((post, idx) => {
-              const liked = likedPosts[post.id] || false;
-              const isOpen = openComments === post.id;
-              const { comments, totalPages: totalCommentPages, currentPage: currentCommentPage, totalCount, startIndex, endIndex } = getPaginatedComments(post.id);
-              
-              return (
-                <div key={post.id || idx} style={{ ...s.postCard, background: 'var(--bg-secondary)', borderColor: 'var(--border-light)' }}>
-                  <div style={s.postHeader}>
-                    <Avatar initials={post.initials} size={36} />
-                    <div>
-                      <p style={{ ...s.postAuthor, color: 'var(--text-primary)' }}>{post.name}</p>
-                      <p style={{ ...s.postTime, color: 'var(--text-muted)' }}>{post.time}</p>
-                    </div>
-                    <Tag style={{ marginLeft: 'auto', fontSize: 10 }}>{post.tag}</Tag>
-                  </div>
-                  <h3 style={{ ...s.postTitle, color: 'var(--text-primary)' }}>{post.title}</h3>
-                  <p style={{ ...s.postBody, color: 'var(--text-secondary)' }}>{post.body}</p>
+            {!loading && posts.map((post, idx) => postCard(post, idx))}
 
-                  <div style={s.postActions}>
-                    <button
-                      style={{
-                        ...s.actionBtn,
-                        background: liked ? 'rgba(220,38,38,0.08)' : 'var(--bg-surface)',
-                        color: liked ? '#dc2626' : 'var(--text-secondary)',
-                        border: liked ? '1px solid rgba(220,38,38,0.2)' : '1px solid var(--border-light)',
-                      }}
-                      onClick={() => handleLike(post.id)}
-                    >
-                      <HeartIcon filled={liked} size={14} />
-                      <span style={{ fontSize: 12, fontWeight: 500 }}>{post.likes}</span>
-                    </button>
-                    <button
-                      style={{
-                        ...s.actionBtn,
-                        background: isOpen ? 'rgba(79,70,229,0.08)' : 'var(--bg-surface)',
-                        color: isOpen ? '#4f46e5' : 'var(--text-secondary)',
-                        border: isOpen ? '1px solid rgba(79,70,229,0.2)' : '1px solid var(--border-light)',
-                      }}
-                      onClick={() => toggleComments(post.id)}
-                    >
-                      <CommentIcon size={14} />
-                      <span style={{ fontSize: 12, fontWeight: 500 }}>{post.comments}</span>
-                    </button>
-                  </div>
-
-                  {isOpen && (
-                    <div style={{ ...s.commentsSection, borderColor: 'var(--border-light)' }}>
-                      {totalCount > 0 && (
-                        <div style={s.commentsHeader}>
-                          <span style={{ ...s.commentsHeaderTitle, color: 'var(--text-primary)' }}>
-                            {totalCount} {totalCount === 1 ? 'comentario' : 'comentarios'}
-                          </span>
-                          {totalCommentPages > 1 && (
-                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                              Mostrando {startIndex + 1}–{endIndex} de {totalCount}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {commentsLoading && !commentsByPost[post.id] && (
-                        <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Cargando comentarios...</p>
-                      )}
-
-                      {commentsByPost[post.id] && totalCount === 0 && (
-                        <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Sé el primero en comentar.</p>
-                      )}
-
-                      {comments.map((comment) => (
-                        <div key={comment.id} style={{ ...s.commentItem, background: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
-                          <Avatar initials={getInitials(comment.author)} size={30} />
-                          <div style={s.commentContent}>
-                            <div style={s.commentMeta}>
-                              <span style={{ ...s.commentAuthor, color: 'var(--text-primary)' }}>{comment.author}</span>
-                              <span style={{ ...s.commentTime, color: 'var(--text-muted)' }}>{timeAgo(comment.created_at)}</span>
-                            </div>
-                            <p style={{ ...s.commentText, color: 'var(--text-secondary)' }}>{comment.content}</p>
-                          </div>
-                        </div>
-                      ))}
-
-                      {totalCommentPages > 1 && (
-                        <div style={s.commentsPagination}>
-                          <button
-                            style={{
-                              ...s.commentPageBtn,
-                              opacity: currentCommentPage === 1 ? 0.5 : 1,
-                              background: 'var(--bg-surface)',
-                              color: 'var(--text-secondary)',
-                              borderColor: 'var(--border-light)',
-                            }}
-                            onClick={() => goToCommentPage(post.id, currentCommentPage - 1)}
-                            disabled={currentCommentPage === 1}
-                          >
-                            ← Anterior
-                          </button>
-                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                            {currentCommentPage} / {totalCommentPages}
-                          </span>
-                          <button
-                            style={{
-                              ...s.commentPageBtn,
-                              opacity: currentCommentPage === totalCommentPages ? 0.5 : 1,
-                              background: 'var(--bg-surface)',
-                              color: 'var(--text-secondary)',
-                              borderColor: 'var(--border-light)',
-                            }}
-                            onClick={() => goToCommentPage(post.id, currentCommentPage + 1)}
-                            disabled={currentCommentPage === totalCommentPages}
-                          >
-                            Siguiente →
-                          </button>
-                        </div>
-                      )}
-
-                      <div style={{ ...s.commentForm, borderColor: 'var(--border-light)' }}>
-                        <input
-                          style={{ ...s.commentInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
-                          placeholder="Tu nombre"
-                          value={newComment.author}
-                          onChange={(e) => setNewComment({ ...newComment, author: e.target.value })}
-                        />
-                        <textarea
-                          style={{ ...s.commentTextarea, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
-                          placeholder="Escribe un comentario..."
-                          value={newComment.content}
-                          onChange={(e) => setNewComment({ ...newComment, content: e.target.value })}
-                        />
+            {!loading && totalPages > 1 && (
+              <>
+                <div style={s.postsPagination}>
+                  <button
+                    style={{
+                      ...s.pageBtn,
+                      visibility: currentPage === 1 ? 'hidden' : 'visible',
+                    }}
+                    onClick={goToPrevPage}
+                    disabled={currentPage === 1}
+                  >
+                    ← Anterior
+                  </button>
+                  
+                  <div style={s.pageNumbers}>
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
                         <button
-                          style={{ ...s.commentSubmit, opacity: commentSubmitting ? 0.6 : 1 }}
-                          onClick={() => handleNewComment(post.id)}
-                          disabled={commentSubmitting}
+                          key={pageNum}
+                          style={{
+                            ...s.pageNumberBtn,
+                            background: currentPage === pageNum ? 'var(--crimson)' : 'var(--bg-surface)',
+                            color: currentPage === pageNum ? '#fff' : 'var(--text-secondary)',
+                          }}
+                          onClick={() => {
+                            setCurrentPage(pageNum);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
                         >
-                          {commentSubmitting ? 'Enviando...' : 'Comentar'}
+                          {pageNum}
                         </button>
-                      </div>
-                    </div>
-                  )}
+                      );
+                    })}
+                  </div>
+                  
+                  <button
+                    style={{
+                      ...s.pageBtn,
+                      visibility: currentPage === totalPages ? 'hidden' : 'visible',
+                    }}
+                    onClick={goToNextPage}
+                    disabled={currentPage === totalPages}
+                  >
+                    Siguiente →
+                  </button>
                 </div>
-              );
-            })}
-
-            {/* PAGINACIÓN DE POSTS - Esta es la parte importante */}
-            {!loading && totalPages > 1 && (
-              <div style={s.postsPagination}>
-                <button
-                  style={{
-                    ...s.postsPageBtn,
-                    opacity: currentPage === 1 ? 0.4 : 1,
-                    visibility: currentPage === 1 ? 'hidden' : 'visible',
-                  }}
-                  onClick={goToPrevPage}
-                  disabled={currentPage === 1}
-                >
-                  ← Anterior
-                </button>
-                
-                <div style={s.pageNumbers}>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    
-                    return (
-                      <button
-                        key={pageNum}
-                        style={{
-                          ...s.pageNumberBtn,
-                          background: currentPage === pageNum ? 'var(--crimson)' : 'var(--bg-surface)',
-                          color: currentPage === pageNum ? '#fff' : 'var(--text-secondary)',
-                        }}
-                        onClick={() => {
-                          setCurrentPage(pageNum);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
+                <div style={s.paginationInfo}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                    Página {currentPage} de {totalPages}
+                  </span>
                 </div>
-                
-                <button
-                  style={{
-                    ...s.postsPageBtn,
-                    opacity: currentPage === totalPages ? 0.4 : 1,
-                    visibility: currentPage === totalPages ? 'hidden' : 'visible',
-                  }}
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                >
-                  Siguiente →
-                </button>
-              </div>
-            )}
-            
-            {/* Información de paginación simple */}
-            {!loading && totalPages > 1 && (
-              <div style={s.paginationInfo}>
-                <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-                  Página {currentPage} de {totalPages}
-                </span>
-              </div>
+              </>
             )}
           </div>
 
@@ -677,7 +640,7 @@ const s = {
   layoutMobile: { display: 'flex', flexDirection: 'column' },
   feed: {},
   feedTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 },
-  feedTitle: { fontFamily: "'Playfair Display', serif", fontSize: 'clamp(20px, 5vw, 22px)', fontWeight: 600, margin: 0 },
+  feedTitle: { fontFamily: "'Playfair Display', serif", fontSize: 'clamp(20px, 5vw, 22px)', fontWeight: 600 },
 
   postCard: { border: '1px solid', borderRadius: 12, padding: '16px', marginBottom: 12, boxShadow: 'var(--shadow)' },
   postHeader: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' },
@@ -792,7 +755,9 @@ const s = {
   trendAuthor: { fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   mobileTrending: { margin: '20px 16px 0', padding: 16, border: '1px solid', borderRadius: 10 },
 
-  // Estilos para la paginación de POSTS
+  pagination: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 20, marginBottom: 8 },
+  pageBtn: { border: 'none', borderRadius: 20, padding: '7px 18px', fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontWeight: 500, background: 'var(--bg-surface)', color: 'var(--text-secondary)' },
+
   postsPagination: {
     display: 'flex',
     justifyContent: 'center',
@@ -801,18 +766,6 @@ const s = {
     marginTop: 24,
     marginBottom: 8,
     flexWrap: 'wrap',
-  },
-  postsPageBtn: {
-    border: '1px solid var(--border-light)',
-    borderRadius: 20,
-    padding: '8px 20px',
-    fontSize: 13,
-    cursor: 'pointer',
-    fontFamily: "'DM Sans', sans-serif",
-    fontWeight: 500,
-    background: 'var(--bg-surface)',
-    color: 'var(--text-secondary)',
-    transition: 'all 0.15s ease',
   },
   pageNumbers: {
     display: 'flex',
