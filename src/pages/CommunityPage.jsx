@@ -1,4 +1,4 @@
-// src/pages/CommunityPage.jsx - Versión corregida con paginación funcional
+// src/pages/CommunityPage.jsx - Con paginación de comentarios funcionando (5 por página)
 
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
@@ -6,7 +6,7 @@ import { Avatar, Tag, BookCover, Card, SectionLabel, Button } from '../component
 import { apiFetch, getBookImageUrl } from '../config/api';
 
 const PAGE_SIZE = 10;
-const COMMENTS_PAGE_SIZE = 5;
+const COMMENTS_PER_PAGE = 5; // 5 comentarios por página
 
 const getInitials = (name) => {
   if (!name) return '?';
@@ -81,7 +81,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [newComment, setNewComment] = useState({ author: '', content: '' });
   const [commentSubmitting, setCommentSubmitting] = useState(false);
-  const [commentsPage, setCommentsPage] = useState({});
+  const [commentsPage, setCommentsPage] = useState({}); // Guarda la página actual de comentarios para cada post
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -193,15 +193,18 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
     setOpenComments(postId);
     setNewComment({ author: '', content: '' });
-    // Reset to page 1 when opening comments
+    
+    // Resetear a página 1 cuando se abren los comentarios
     setCommentsPage(prev => ({ ...prev, [postId]: 1 }));
 
+    // Solo fetch si no tenemos los comentarios aún
     if (!commentsByPost[postId]) {
       setCommentsLoading(true);
       try {
         const response = await apiFetch(`/posts/${postId}/comments`);
         const data = await response.json();
-        setCommentsByPost(prev => ({ ...prev, [postId]: Array.isArray(data) ? data : [] }));
+        const commentsArray = Array.isArray(data) ? data : [];
+        setCommentsByPost(prev => ({ ...prev, [postId]: commentsArray }));
       } catch (error) {
         console.error('Error fetching comments:', error);
         setCommentsByPost(prev => ({ ...prev, [postId]: [] }));
@@ -225,15 +228,20 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       if (!response.ok) throw new Error('status ' + response.status);
       const created = await response.json();
 
-      // Update comments with new comment
-      const updatedComments = [...(commentsByPost[postId] || []), created];
+      const currentComments = commentsByPost[postId] || [];
+      const updatedComments = [...currentComments, created];
       setCommentsByPost(prev => ({ ...prev, [postId]: updatedComments }));
-      setPosts(prev => prev.map(p => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)));
+      
+      setPosts(prev => prev.map(p => 
+        p.id === postId ? { ...p, comments: p.comments + 1 } : p
+      ));
+      
       setNewComment({ author: '', content: '' });
       
-      // Calculate last page after adding new comment
-      const newTotalPages = Math.ceil(updatedComments.length / COMMENTS_PAGE_SIZE);
+      // Ir a la última página para ver el comentario nuevo
+      const newTotalPages = Math.ceil(updatedComments.length / COMMENTS_PER_PAGE);
       setCommentsPage(prev => ({ ...prev, [postId]: newTotalPages }));
+      
     } catch (error) {
       console.error('Error creating comment:', error);
       alert('No se pudo enviar el comentario. Intenta de nuevo.');
@@ -242,182 +250,55 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     }
   };
 
-  const getPagedComments = (postId) => {
-    const all = commentsByPost[postId] || [];
-    const currentPageNum = commentsPage[postId] || 1;
-    const total = all.length;
-    const totalCommentPages = total > 0 ? Math.ceil(total / COMMENTS_PAGE_SIZE) : 1;
+  // Función para obtener los comentarios paginados de un post
+  const getPaginatedComments = (postId) => {
+    const allComments = commentsByPost[postId] || [];
+    const totalComments = allComments.length;
     
-    // Ensure current page is valid
-    const validPage = Math.min(currentPageNum, totalCommentPages);
+    if (totalComments === 0) {
+      return {
+        comments: [],
+        totalPages: 1,
+        currentPage: 1,
+        totalCount: 0,
+        startIndex: 0,
+        endIndex: 0,
+      };
+    }
+    
+    const currentPageNum = commentsPage[postId] || 1;
+    const totalPages = Math.ceil(totalComments / COMMENTS_PER_PAGE);
+    
+    // Asegurar que la página actual está dentro de los límites
+    let validPage = currentPageNum;
+    if (currentPageNum < 1) validPage = 1;
+    if (currentPageNum > totalPages) validPage = totalPages;
+    
     if (validPage !== currentPageNum) {
       setCommentsPage(prev => ({ ...prev, [postId]: validPage }));
     }
     
-    const start = (validPage - 1) * COMMENTS_PAGE_SIZE;
-    const end = Math.min(start + COMMENTS_PAGE_SIZE, total);
+    const startIndex = (validPage - 1) * COMMENTS_PER_PAGE;
+    const endIndex = Math.min(startIndex + COMMENTS_PER_PAGE, totalComments);
+    const paginatedComments = allComments.slice(startIndex, endIndex);
     
     return {
-      comments: all.slice(start, end),
-      totalCommentPages: totalCommentPages,
-      currentCommentPage: validPage,
-      totalCount: total,
-      rangeStart: total > 0 ? start + 1 : 0,
-      rangeEnd: end,
+      comments: paginatedComments,
+      totalPages: totalPages,
+      currentPage: validPage,
+      totalCount: totalComments,
+      startIndex: startIndex,
+      endIndex: endIndex,
     };
   };
 
-  const changeCommentsPage = (postId, newPage) => {
-    const all = commentsByPost[postId] || [];
-    const totalPages = Math.ceil(all.length / COMMENTS_PAGE_SIZE);
-    const validPage = Math.max(1, Math.min(newPage, totalPages));
+  const goToCommentPage = (postId, newPage) => {
+    const allComments = commentsByPost[postId] || [];
+    const totalPages = Math.ceil(allComments.length / COMMENTS_PER_PAGE);
+    let validPage = newPage;
+    if (validPage < 1) validPage = 1;
+    if (validPage > totalPages) validPage = totalPages;
     setCommentsPage(prev => ({ ...prev, [postId]: validPage }));
-  };
-
-  const postCard = (post, idx) => {
-    const liked = likedPosts[post.id] || false;
-    const isOpen = openComments === post.id;
-    const { comments, totalCommentPages, currentCommentPage, totalCount, rangeStart, rangeEnd } = getPagedComments(post.id);
-
-    return (
-      <div key={post.id || post.title + idx} style={{ ...s.postCard, background: 'var(--bg-secondary)', borderColor: 'var(--border-light)' }}>
-        <div style={s.postHeader}>
-          <Avatar initials={post.initials} size={36} />
-          <div>
-            <p style={{ ...s.postAuthor, color: 'var(--text-primary)' }}>{post.name}</p>
-            <p style={{ ...s.postTime, color: 'var(--text-muted)' }}>{post.time}</p>
-          </div>
-          <Tag style={{ marginLeft: 'auto', fontSize: 10 }}>{post.tag}</Tag>
-        </div>
-        <h3 style={{ ...s.postTitle, color: 'var(--text-primary)' }}>{post.title}</h3>
-        <p style={{ ...s.postBody, color: 'var(--text-secondary)' }}>{post.body}</p>
-
-        <div style={s.postActions}>
-          <button
-            style={{
-              ...s.actionBtn,
-              background: liked ? 'rgba(220,38,38,0.08)' : 'var(--bg-surface)',
-              color: liked ? '#dc2626' : 'var(--text-secondary)',
-              border: liked ? '1px solid rgba(220,38,38,0.2)' : '1px solid var(--border-light)',
-            }}
-            onClick={() => handleLike(post.id)}
-          >
-            <HeartIcon filled={liked} size={14} />
-            <span style={{ fontSize: 12, fontWeight: 500 }}>{post.likes}</span>
-          </button>
-          <button
-            style={{
-              ...s.actionBtn,
-              background: isOpen ? 'rgba(79,70,229,0.08)' : 'var(--bg-surface)',
-              color: isOpen ? '#4f46e5' : 'var(--text-secondary)',
-              border: isOpen ? '1px solid rgba(79,70,229,0.2)' : '1px solid var(--border-light)',
-            }}
-            onClick={() => toggleComments(post.id)}
-          >
-            <CommentIcon size={14} />
-            <span style={{ fontSize: 12, fontWeight: 500 }}>{post.comments}</span>
-          </button>
-        </div>
-
-        {isOpen && (
-          <div style={{ ...s.commentsSection, borderColor: 'var(--border-light)' }}>
-            {/* Header with counter */}
-            {commentsByPost[post.id] && totalCount > 0 && (
-              <div style={s.commentsHeader}>
-                <span style={{ ...s.commentsHeaderTitle, color: 'var(--text-primary)' }}>
-                  {totalCount} {totalCount === 1 ? 'comentario' : 'comentarios'}
-                </span>
-                {totalCommentPages > 1 && (
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    Mostrando {rangeStart}–{rangeEnd} de {totalCount}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {commentsLoading && !commentsByPost[post.id] && (
-              <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Cargando comentarios...</p>
-            )}
-
-            {commentsByPost[post.id] && totalCount === 0 && (
-              <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Sé el primero en comentar.</p>
-            )}
-
-            {/* Comments list */}
-            {comments.map((c) => (
-              <div key={c.id} style={{ ...s.commentItem, background: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
-                <Avatar initials={getInitials(c.author)} size={30} />
-                <div style={s.commentContent}>
-                  <div style={s.commentMeta}>
-                    <span style={{ ...s.commentAuthor, color: 'var(--text-primary)' }}>{c.author}</span>
-                    <span style={{ ...s.commentTime, color: 'var(--text-muted)' }}>{timeAgo(c.created_at)}</span>
-                  </div>
-                  <p style={{ ...s.commentText, color: 'var(--text-secondary)' }}>{c.content}</p>
-                </div>
-              </div>
-            ))}
-
-            {/* Pagination */}
-            {totalCommentPages > 1 && (
-              <div style={s.commentsPagination}>
-                <button
-                  style={{
-                    ...s.commentPageBtn,
-                    opacity: currentCommentPage === 1 ? 0.35 : 1,
-                    background: 'var(--bg-surface)',
-                    color: 'var(--text-secondary)',
-                    borderColor: 'var(--border-light)',
-                  }}
-                  onClick={() => changeCommentsPage(post.id, currentCommentPage - 1)}
-                  disabled={currentCommentPage === 1}
-                >
-                  ← Anterior
-                </button>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 80, textAlign: 'center' }}>
-                  {currentCommentPage} / {totalCommentPages}
-                </span>
-                <button
-                  style={{
-                    ...s.commentPageBtn,
-                    opacity: currentCommentPage === totalCommentPages ? 0.35 : 1,
-                    background: 'var(--bg-surface)',
-                    color: 'var(--text-secondary)',
-                    borderColor: 'var(--border-light)',
-                  }}
-                  onClick={() => changeCommentsPage(post.id, currentCommentPage + 1)}
-                  disabled={currentCommentPage === totalCommentPages}
-                >
-                  Siguiente →
-                </button>
-              </div>
-            )}
-
-            {/* New comment form */}
-            <div style={{ ...s.commentForm, borderColor: 'var(--border-light)' }}>
-              <input
-                style={{ ...s.commentInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
-                placeholder="Tu nombre"
-                value={newComment.author}
-                onChange={(e) => setNewComment({ ...newComment, author: e.target.value })}
-              />
-              <textarea
-                style={{ ...s.commentTextarea, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
-                placeholder="Escribe un comentario..."
-                value={newComment.content}
-                onChange={(e) => setNewComment({ ...newComment, content: e.target.value })}
-              />
-              <button
-                style={{ ...s.commentSubmit, opacity: commentSubmitting ? 0.6 : 1 }}
-                onClick={() => handleNewComment(post.id)}
-                disabled={commentSubmitting}
-              >
-                {commentSubmitting ? 'Enviando...' : 'Comentar'}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
   };
 
   return (
@@ -497,7 +378,156 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
               </div>
             )}
 
-            {!loading && posts.map((post, idx) => postCard(post, idx))}
+            {!loading && posts.map((post, idx) => {
+              const liked = likedPosts[post.id] || false;
+              const isOpen = openComments === post.id;
+              const { comments, totalPages: totalCommentPages, currentPage: currentCommentPage, totalCount, startIndex, endIndex } = getPaginatedComments(post.id);
+              
+              return (
+                <div key={post.id || idx} style={{ ...s.postCard, background: 'var(--bg-secondary)', borderColor: 'var(--border-light)' }}>
+                  <div style={s.postHeader}>
+                    <Avatar initials={post.initials} size={36} />
+                    <div>
+                      <p style={{ ...s.postAuthor, color: 'var(--text-primary)' }}>{post.name}</p>
+                      <p style={{ ...s.postTime, color: 'var(--text-muted)' }}>{post.time}</p>
+                    </div>
+                    <Tag style={{ marginLeft: 'auto', fontSize: 10 }}>{post.tag}</Tag>
+                  </div>
+                  <h3 style={{ ...s.postTitle, color: 'var(--text-primary)' }}>{post.title}</h3>
+                  <p style={{ ...s.postBody, color: 'var(--text-secondary)' }}>{post.body}</p>
+
+                  <div style={s.postActions}>
+                    <button
+                      style={{
+                        ...s.actionBtn,
+                        background: liked ? 'rgba(220,38,38,0.08)' : 'var(--bg-surface)',
+                        color: liked ? '#dc2626' : 'var(--text-secondary)',
+                        border: liked ? '1px solid rgba(220,38,38,0.2)' : '1px solid var(--border-light)',
+                      }}
+                      onClick={() => handleLike(post.id)}
+                    >
+                      <HeartIcon filled={liked} size={14} />
+                      <span style={{ fontSize: 12, fontWeight: 500 }}>{post.likes}</span>
+                    </button>
+                    <button
+                      style={{
+                        ...s.actionBtn,
+                        background: isOpen ? 'rgba(79,70,229,0.08)' : 'var(--bg-surface)',
+                        color: isOpen ? '#4f46e5' : 'var(--text-secondary)',
+                        border: isOpen ? '1px solid rgba(79,70,229,0.2)' : '1px solid var(--border-light)',
+                      }}
+                      onClick={() => toggleComments(post.id)}
+                    >
+                      <CommentIcon size={14} />
+                      <span style={{ fontSize: 12, fontWeight: 500 }}>{post.comments}</span>
+                    </button>
+                  </div>
+
+                  {isOpen && (
+                    <div style={{ ...s.commentsSection, borderColor: 'var(--border-light)' }}>
+                      
+                      {/* Cabecera con contador de comentarios */}
+                      {totalCount > 0 && (
+                        <div style={s.commentsHeader}>
+                          <span style={{ ...s.commentsHeaderTitle, color: 'var(--text-primary)' }}>
+                            {totalCount} {totalCount === 1 ? 'comentario' : 'comentarios'}
+                          </span>
+                          {totalCommentPages > 1 && (
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                              Mostrando {startIndex + 1}–{endIndex} de {totalCount}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Estado de carga */}
+                      {commentsLoading && !commentsByPost[post.id] && (
+                        <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Cargando comentarios...</p>
+                      )}
+
+                      {/* Estado vacío */}
+                      {commentsByPost[post.id] && totalCount === 0 && (
+                        <p style={{ ...s.commentMuted, color: 'var(--text-muted)' }}>Sé el primero en comentar.</p>
+                      )}
+
+                      {/* Lista de comentarios - SOLO los de la página actual (máximo 5) */}
+                      {comments.map((comment) => (
+                        <div key={comment.id} style={{ ...s.commentItem, background: 'var(--bg-primary)', borderColor: 'var(--border-light)' }}>
+                          <Avatar initials={getInitials(comment.author)} size={30} />
+                          <div style={s.commentContent}>
+                            <div style={s.commentMeta}>
+                              <span style={{ ...s.commentAuthor, color: 'var(--text-primary)' }}>{comment.author}</span>
+                              <span style={{ ...s.commentTime, color: 'var(--text-muted)' }}>{timeAgo(comment.created_at)}</span>
+                            </div>
+                            <p style={{ ...s.commentText, color: 'var(--text-secondary)' }}>{comment.content}</p>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Paginación - SOLO visible si hay más de 5 comentarios */}
+                      {totalCommentPages > 1 && (
+                        <div style={s.commentsPagination}>
+                          <button
+                            style={{
+                              ...s.commentPageBtn,
+                              opacity: currentCommentPage === 1 ? 0.5 : 1,
+                              background: 'var(--bg-surface)',
+                              color: 'var(--text-secondary)',
+                              borderColor: 'var(--border-light)',
+                              cursor: currentCommentPage === 1 ? 'not-allowed' : 'pointer',
+                            }}
+                            onClick={() => goToCommentPage(post.id, currentCommentPage - 1)}
+                            disabled={currentCommentPage === 1}
+                          >
+                            ← Anterior
+                          </button>
+                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                            {currentCommentPage} / {totalCommentPages}
+                          </span>
+                          <button
+                            style={{
+                              ...s.commentPageBtn,
+                              opacity: currentCommentPage === totalCommentPages ? 0.5 : 1,
+                              background: 'var(--bg-surface)',
+                              color: 'var(--text-secondary)',
+                              borderColor: 'var(--border-light)',
+                              cursor: currentCommentPage === totalCommentPages ? 'not-allowed' : 'pointer',
+                            }}
+                            onClick={() => goToCommentPage(post.id, currentCommentPage + 1)}
+                            disabled={currentCommentPage === totalCommentPages}
+                          >
+                            Siguiente →
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Formulario para nuevo comentario */}
+                      <div style={{ ...s.commentForm, borderColor: 'var(--border-light)' }}>
+                        <input
+                          style={{ ...s.commentInput, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                          placeholder="Tu nombre"
+                          value={newComment.author}
+                          onChange={(e) => setNewComment({ ...newComment, author: e.target.value })}
+                        />
+                        <textarea
+                          style={{ ...s.commentTextarea, background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                          placeholder="Escribe un comentario..."
+                          value={newComment.content}
+                          onChange={(e) => setNewComment({ ...newComment, content: e.target.value })}
+                        />
+                        <button
+                          style={{ ...s.commentSubmit, opacity: commentSubmitting ? 0.6 : 1 }}
+                          onClick={() => handleNewComment(post.id)}
+                          disabled={commentSubmitting}
+                        >
+                          {commentSubmitting ? 'Enviando...' : 'Comentar'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {!loading && totalPages > 1 && (
               <div style={s.pagination}>
@@ -509,7 +539,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                   ← Anterior
                 </button>
                 <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-                  {currentPage} / {totalPages}
+                  Página {currentPage} de {totalPages}
                 </span>
                 <button
                   style={{ ...s.pageBtn, opacity: currentPage === totalPages ? 0.4 : 1 }}
