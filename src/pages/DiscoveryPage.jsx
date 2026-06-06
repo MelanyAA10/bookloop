@@ -4,16 +4,31 @@ import Navbar from '../components/Navbar';
 import { Tag, Badge, Avatar, Stars, BookCover, SectionLabel } from '../components/UI';
 import { apiFetch, getBookImageUrl } from '../config/api';
 
-const GENRES = ['All', 'Fiction', 'Science', 'History', 'Philosophy', 'Technology', 'Art'];
-
 // Portadas de Recent Additions: mismo tamaño que el Featured (200×280)
 const COVER_W = 200;
 const COVER_H = 280;
 const COVER_W_MOBILE = 140;
 const COVER_H_MOBILE = 196;
 
+const getInitials = (name) => {
+  if (!name) return '??';
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '??';
+};
+
+// El microservicio devuelve: id, title, author, description, image, pageCount, language, uploadedBy
+const mapBook = (b) => ({
+  id: b.id,
+  title: b.title,
+  author: b.author,
+  description: b.description,
+  image: b.image,
+  pageCount: b.pageCount,
+  language: b.language,
+  uploadedBy: b.uploadedBy,
+});
+
 export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTheme }) {
-  const [activeGenre, setActiveGenre] = useState('All');
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -28,14 +43,18 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
   }, []);
 
   useEffect(() => { fetchBooks(); }, []);
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, activeGenre]);
+  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
   const fetchBooks = async () => {
     setLoading(true);
     try {
-      const response = await apiFetch('/books');
+      // El micro pagina del lado servidor; pedimos una página grande y filtramos/paginamos en cliente
+      const response = await apiFetch('/books?page=0&size=100');
       const result = await response.json();
-      setBooks(Array.isArray(result) ? result : (result.data || []));
+      const list = Array.isArray(result)
+        ? result
+        : (result.content || result.data || []);
+      setBooks(list.map(mapBook));
     } catch (error) {
       console.error('Error fetching books:', error);
       setBooks([]);
@@ -45,11 +64,11 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
   };
 
   const filteredBooks = books.filter(book => {
-    const matchesGenre = activeGenre === 'All' || book.genre === activeGenre;
-    const matchesSearch =
-      book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      book.author.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesGenre && matchesSearch;
+    const term = searchTerm.toLowerCase();
+    return (
+      (book.title || '').toLowerCase().includes(term) ||
+      (book.author || '').toLowerCase().includes(term)
+    );
   });
 
   const filteredTotalPages = Math.ceil(filteredBooks.length / booksPerPage) || 1;
@@ -77,13 +96,6 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-        </div>
-
-        {/* Genres */}
-        <div style={s.genreTags}>
-          {GENRES.map(g => (
-            <Tag key={g} active={activeGenre === g} onClick={() => setActiveGenre(g)}>{g}</Tag>
-          ))}
         </div>
 
         {loading && (
@@ -116,21 +128,19 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
               <div style={s.featuredInfo}>
                 <Badge variant="default" style={{ marginBottom: 10 }}>Featured Today</Badge>
                 <h2 style={s.featuredTitle}>{featuredBook.title}</h2>
-                <p style={s.featuredMeta}>{featuredBook.author} · {featuredBook.year}</p>
+                <p style={s.featuredMeta}>{featuredBook.author}</p>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-                  <Tag>{featuredBook.pages} pages</Tag>
+                  <Tag>{featuredBook.pageCount} pages</Tag>
                   <Tag>{featuredBook.language}</Tag>
-                  <Tag>{featuredBook.genre}</Tag>
                 </div>
                 <div style={s.ownerRow}>
-                  <Avatar initials={featuredBook.owner?.initials || '??'} size={28} />
-                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{featuredBook.owner?.name || 'Unknown'}</span>
-                  <Stars value={featuredBook.owner?.rating || 0} size={12} />
+                  <Avatar initials={getInitials(featuredBook.uploadedBy)} size={28} />
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{featuredBook.uploadedBy || 'Unknown'}</span>
                 </div>
                 {!isMobile && (
                   <>
                     <SectionLabel style={{ marginTop: 14 }}>The Story</SectionLabel>
-                    <p style={s.synopsis}>{featuredBook.synopsis || 'No synopsis available.'}</p>
+                    <p style={s.synopsis}>{featuredBook.description || 'No description available.'}</p>
                   </>
                 )}
                 <div style={s.featuredActions}>
@@ -190,7 +200,6 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
                     style={s.gridItem}
                     onClick={() => onNavigate('bookdetail', { id: book.id })}
                   >
-                    {/* Mismo tamaño exacto que el featured: 200×280 desktop / 140×196 mobile */}
                     <div
                       style={{
                         width: coverW,
@@ -243,7 +252,7 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
 
 const s = {
   body: { padding: '20px 16px', maxWidth: 1280, margin: '0 auto' },
-  searchRow: { marginBottom: 16 },
+  searchRow: { marginBottom: 20 },
   searchInput: {
     padding: '10px 16px',
     border: '1.5px solid var(--border)',
@@ -255,7 +264,6 @@ const s = {
     width: '100%',
     outline: 'none',
   },
-  genreTags: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 },
   featured: {
     display: 'grid',
     gridTemplateColumns: '200px 1fr 220px',
@@ -341,7 +349,6 @@ const s = {
     whiteSpace: 'nowrap',
     margin: 0,
   },
-  // grid centra las portadas de tamaño fijo dentro de cada celda
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
