@@ -241,35 +241,25 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     const alreadyLiked = likedPosts[postId] || false;
     const action = alreadyLiked ? 'unlike' : 'like';
 
+    // Actualización visual inmediata del corazón (se confirma/revierte con la respuesta real)
     const updatedLiked = { ...likedPosts, [postId]: !alreadyLiked };
     setLikedPosts(updatedLiked);
     localStorage.setItem('likedPosts', JSON.stringify(updatedLiked));
-    setPosts(prev => prev.map(p =>
-      p.id === postId
-        ? { ...p, likes: alreadyLiked ? Math.max(p.likes - 1, 0) : p.likes + 1 }
-        : p
-    ));
 
     try {
       const response = await apiFetch(`/posts/${postId}/like?action=${action}`, { method: 'POST' });
-      if (!response.ok) {
-        setLikedPosts(likedPosts);
-        localStorage.setItem('likedPosts', JSON.stringify(likedPosts));
-        setPosts(prev => prev.map(p =>
-          p.id === postId
-            ? { ...p, likes: alreadyLiked ? p.likes + 1 : Math.max(p.likes - 1, 0) }
-            : p
-        ));
-      }
+      if (!response.ok) throw new Error('status ' + response.status);
+
+      // El backend devuelve el post con el conteo REAL de la base de datos.
+      const updated = await response.json();
+      setPosts(prev => prev.map(p =>
+        p.id === postId ? { ...p, likes: updated.likes ?? p.likes } : p
+      ));
     } catch (error) {
       console.error('Error liking post:', error);
+      // Revertir el corazón si la petición falló
       setLikedPosts(likedPosts);
       localStorage.setItem('likedPosts', JSON.stringify(likedPosts));
-      setPosts(prev => prev.map(p =>
-        p.id === postId
-          ? { ...p, likes: alreadyLiked ? p.likes + 1 : Math.max(p.likes - 1, 0) }
-          : p
-      ));
     }
   };
 
