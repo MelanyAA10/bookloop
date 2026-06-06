@@ -1,7 +1,4 @@
 // src/config/api.js
-// El frontend ya no conoce la API key ni la URL de Azure.
-// Todas las llamadas van a /api que Azure SWA enruta a la Function proxy.
-
 const API_BASE = '/api';
 
 export const apiFetch = async (endpoint, options = {}) => {
@@ -13,63 +10,61 @@ export const apiFetch = async (endpoint, options = {}) => {
   return response;
 };
 
+export const getBookImageUrl = (book) => {
+  if (book?.image && typeof book.image === 'string' && book.image.startsWith('http')) return book.image;
+  if (book?.images?.length > 0 && book.images[0]) return book.images[0];
+  if (book?.cover_url) return book.cover_url;
+  if (book?.isbn) return `https://covers.openlibrary.org/b/isbn/${book.isbn}-M.jpg`;
+  return null;
+};
+
 /**
- * Obtiene el perfil de un usuario por ID desde /api/users/{id}.
- * Retorna null si el endpoint falla (no bloquea el resto de la UI).
+ * Obtiene el perfil de un usuario por su ID desde /api/users/{id}
+ * Si falla o no existe, retorna null silenciosamente.
  */
 export const fetchUserById = async (userId) => {
-  if (!userId) return null;
+  if (!userId || userId === '' || userId === 'Invitado') return null;
   try {
     const res = await apiFetch(`/users/${userId}`);
     if (!res.ok) return null;
-    return await res.json();
+    const data = await res.json();
+    return data.user || data.data || data;
   } catch {
     return null;
   }
 };
 
 /**
- * Mapea un BookResponseDto del microservicio al formato interno del frontend.
- * MS: { id, title, author, description, image, pageCount, language, uploadedBy }
- * uploadedBy es el ID del usuario — se enriquece por separado con fetchUserById().
+ * Mapea un libro crudo del backend al formato que usan los componentes.
+ * ownerProfile viene de fetchUserById(book.uploadedBy) — puede ser null.
  */
 export const mapBook = (book, ownerProfile = null) => {
-  // ownerProfile viene de GET /api/users/{uploadedBy}
-  const ownerName     = ownerProfile?.name     || ownerProfile?.username || book.uploadedBy || 'Unknown';
+  const ownerName = ownerProfile?.name || ownerProfile?.username || book.owner?.name || 'Unknown';
   const ownerInitials = ownerProfile?.initials
-    || (ownerName !== book.uploadedBy
-        ? ownerName.substring(0, 2).toUpperCase()
-        : (book.uploadedBy || 'U').substring(0, 2).toUpperCase());
+    || (ownerName !== 'Unknown' ? ownerName.trim().split(/\s+/).map(p => p[0]).join('').toUpperCase().slice(0, 2) : '??');
 
   return {
     id:          book.id,
-    title:       book.title,
-    author:      book.author,
-    synopsis:    book.description,
-    description: book.description,
-    image:       book.image,
-    cover_url:   book.image,
-    pageCount:   book.pageCount,
-    pages:       book.pageCount,
-    language:    book.language,
-    uploadedBy:  book.uploadedBy,   // ID original del MS
-    // Campos que el MS no provee — defaults visuales
-    color:   book.color  || '#7A3728',
-    genre:   book.genre  || 'Fiction',
-    year:    book.year   || '',
+    title:       book.title       || 'Untitled',
+    author:      book.author      || 'Unknown',
+    year:        book.year        || book.publishYear || null,
+    pages:       book.pages       || book.pageCount   || null,
+    pageCount:   book.pageCount   || book.pages       || null,
+    language:    book.language    || null,
+    genre:       book.genre       || null,
+    color:       book.color       || '#7A3728',
+    isbn:        book.isbn        || null,
+    image:       book.image       || null,
+    images:      book.images      || [],
+    cover_url:   book.cover_url   || null,
+    synopsis:    book.synopsis    || book.description || null,
+    description: book.description || book.synopsis   || null,
+    uploadedBy:  book.uploadedBy  || null,
     owner: {
-      id:       book.uploadedBy,
       name:     ownerName,
       initials: ownerInitials,
-      rating:   ownerProfile?.rating  ?? 5.0,
-      maxDays:  ownerProfile?.maxDays ?? 14,
+      rating:   ownerProfile?.rating  || book.owner?.rating  || 0,
+      maxDays:  ownerProfile?.maxDays || book.owner?.maxDays || 14,
     },
   };
-};
-
-export const getBookImageUrl = (book) => {
-  if (book?.image)                             return book.image;
-  if (book?.cover_url)                         return book.cover_url;
-  if (book?.images?.length > 0 && book.images[0]) return book.images[0];
-  return null;
 };
