@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Tag, Badge, Avatar, Stars, BookCover, SectionLabel } from '../components/UI';
-import { apiFetch, getBookImageUrl, mapBook } from '../config/api';
+import { apiFetch, getBookImageUrl, mapBook, fetchUserById } from '../config/api';
 
 const GENRES = ['All', 'Fiction', 'Science', 'History', 'Philosophy', 'Technology', 'Art'];
 
@@ -36,9 +36,18 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
       const response = await apiFetch('/books?size=100');
       const result = await response.json();
 
-      // Extraer el array de libros y mapear al formato del frontend
+      // Extraer el array de libros
       const rawBooks = result?.content ?? (Array.isArray(result) ? result : []);
-      setBooks(rawBooks.map(mapBook));
+
+      // Enriquecer cada libro con el perfil del owner via GET /api/users/{uploadedBy}
+      // Se hacen en paralelo para no bloquear
+      const booksWithOwners = await Promise.all(
+        rawBooks.map(async (book) => {
+          const ownerProfile = await fetchUserById(book.uploadedBy);
+          return mapBook(book, ownerProfile);
+        })
+      );
+      setBooks(booksWithOwners);
     } catch (error) {
       console.error('Error fetching books:', error);
       setBooks([]);

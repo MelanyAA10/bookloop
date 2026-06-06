@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Badge, Tag, Avatar, Stars, BookCover, SectionLabel, Divider, Button } from '../components/UI';
-import { apiFetch, getBookImageUrl, mapBook } from '../config/api';
+import { apiFetch, getBookImageUrl, mapBook, fetchUserById } from '../config/api';
 
 function SkeletonBox({ width = '100%', height = 16, radius = 6, style }) {
   return (
@@ -32,8 +32,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
   const [loadingBook,    setLoadingBook]    = useState(true);
   const [loadingReviews, setLoadingReviews] = useState(true);
 
-  const [errorBook,    setErrorBook]    = useState(null);
-  const [errorReviews, setErrorReviews] = useState(null);
+  const [errorBook, setErrorBook] = useState(null);
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
@@ -56,8 +55,10 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
       const res = await apiFetch(`/books/${id}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      // Mapear el BookResponseDto al formato del frontend
-      setBook(mapBook(data));
+
+      // Enriquecer con el perfil real del owner via GET /api/users/{uploadedBy}
+      const ownerProfile = await fetchUserById(data.uploadedBy);
+      setBook(mapBook(data, ownerProfile));
     } catch (err) {
       console.error('Error fetching book:', err);
       setErrorBook('Could not load book details. Please try again.');
@@ -68,17 +69,13 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
 
   const fetchReviews = async (id) => {
     setLoadingReviews(true);
-    setErrorReviews(null);
     try {
-      // Nota: el MS actual no tiene endpoint de reviews; si falla, lo manejamos silenciosamente
       const res = await apiFetch(`/books/${id}/reviews`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setReviews(Array.isArray(data) ? data : data?.data ?? []);
     } catch (err) {
-      console.error('Error fetching reviews:', err);
-      // No mostramos error para reviews ya que el MS puede no tener ese endpoint
-      setErrorReviews(null);
+      // Reviews es opcional; si el endpoint no existe no bloqueamos
       setReviews([]);
     } finally {
       setLoadingReviews(false);
@@ -87,10 +84,10 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
 
   const handleRetry = () => {
     const id = typeof bookId === 'object' ? bookId?.id ?? 1 : bookId ?? 1;
-    if (errorBook)    fetchBook(id);
-    if (errorReviews) fetchReviews(id);
+    fetchBook(id);
   };
 
+  // ── Skeleton ──────────────────────────────────────────────────────────────
   if (loadingBook) {
     return (
       <>
@@ -134,6 +131,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
     );
   }
 
+  // ── Error ─────────────────────────────────────────────────────────────────
   if (errorBook) {
     return (
       <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
@@ -165,6 +163,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
     );
   }
 
+  // ── Full page ─────────────────────────────────────────────────────────────
   return (
     <>
       <style>{PULSE_STYLE}</style>
@@ -198,7 +197,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
                 <Badge variant="default">Available for Loan</Badge>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  Owner: {book.owner?.name || book.uploadedBy || 'Unknown'} · {book.owner?.maxDays || 14} days max
+                  Owner: {book.owner?.name} · {book.owner?.maxDays || 14} days max
                 </p>
               </div>
             </div>
@@ -209,17 +208,17 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
               <p style={s.meta}>{book.author}{book.year ? ` · ${book.year}` : ''}</p>
 
               <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-                {book.pages    && <Tag>{book.pages} pages</Tag>}
-                {book.pageCount && !book.pages && <Tag>{book.pageCount} pages</Tag>}
+                {(book.pages || book.pageCount) && <Tag>{book.pages || book.pageCount} pages</Tag>}
                 {book.language && <Tag>{book.language}</Tag>}
                 {book.genre    && <Tag>{book.genre}</Tag>}
               </div>
 
+              {/* Owner box — muestra nombre real desde /api/users/{id} */}
               <div style={s.ownerBox}>
                 <Avatar initials={book.owner?.initials || '??'} size={36} />
                 <div>
                   <p style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-primary)' }}>
-                    {book.owner?.name || book.uploadedBy || 'Unknown'}
+                    {book.owner?.name}
                   </p>
                   <Stars value={book.owner?.rating || 0} size={13} />
                 </div>
@@ -248,7 +247,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
 
           <Divider style={{ marginTop: 36 }} />
 
-          {/* ── Reviews section ── */}
+          {/* ── Reviews ── */}
           <SectionLabel>Recent Reviews</SectionLabel>
 
           {loadingReviews && (
