@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import { Tag, Badge, Avatar, Stars, BookCover, SectionLabel } from '../components/UI';
 import { apiFetch, getBookImageUrl } from '../config/api';
 
+// Portadas de Recent Additions: mismo tamaño que el Featured (200×280)
 const COVER_W = 200;
 const COVER_H = 280;
 const COVER_W_MOBILE = 140;
@@ -15,16 +16,16 @@ const getInitials = (name) => {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '??';
 };
 
-// El backend devuelve: id, title, author, description, image, pageCount, language, uploadedBy
+// El microservicio devuelve: id, title, author, description, image, pageCount, language, uploadedBy
 const mapBook = (b) => ({
-  id:          b.id,
-  title:       b.title,
-  author:      b.author,
+  id: b.id,
+  title: b.title,
+  author: b.author,
   description: b.description,
-  image:       b.image,       // campo correcto del backend
-  pageCount:   b.pageCount,   // campo correcto del backend
-  language:    b.language,
-  uploadedBy:  b.uploadedBy,  // campo correcto del backend
+  image: b.image,
+  pageCount: b.pageCount,
+  language: b.language,
+  uploadedBy: b.uploadedBy,
 });
 
 export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTheme }) {
@@ -47,9 +48,9 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
   const fetchBooks = async () => {
     setLoading(true);
     try {
-      const response = await apiFetch('/v1/books?page=0&size=100');
+      // El micro pagina del lado servidor; pedimos una página grande y filtramos/paginamos en cliente
+      const response = await apiFetch('/books?page=0&size=100');
       const result = await response.json();
-      // El backend devuelve PagedResponseDto: { content, page, size, totalElements, totalPages }
       const list = Array.isArray(result)
         ? result
         : (result.content || result.data || []);
@@ -148,6 +149,7 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
                 </div>
               </div>
 
+              {/* Also Available — sidebar lista compacta */}
               {!isMobile && alsoAvailable.length > 0 && (
                 <div style={s.sidebar}>
                   <SectionLabel>Also Available</SectionLabel>
@@ -171,6 +173,7 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
               )}
             </div>
 
+            {/* Also Available mobile */}
             {isMobile && alsoAvailable.length > 0 && (
               <div style={{ marginTop: 20 }}>
                 <SectionLabel style={{ marginBottom: 12 }}>Also Available</SectionLabel>
