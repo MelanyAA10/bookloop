@@ -2,9 +2,8 @@
 import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Badge, Tag, Avatar, Stars, BookCover, SectionLabel, Divider, Button } from '../components/UI';
-import { apiFetch, getBookImageUrl } from '../config/api';
+import { apiFetch, getBookImageUrl, mapBook } from '../config/api';
 
-// ─── Skeleton helper ─────────────────────────────────────────────────────────
 function SkeletonBox({ width = '100%', height = 16, radius = 6, style }) {
   return (
     <div
@@ -27,7 +26,6 @@ const PULSE_STYLE = `@keyframes pulse {
 }`;
 
 export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, theme, onToggleTheme }) {
-  // ── State ──────────────────────────────────────────────────────────────────
   const [book,    setBook]    = useState(null);
   const [reviews, setReviews] = useState([]);
 
@@ -39,7 +37,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
-  // ── Effects ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
@@ -52,7 +49,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
     fetchReviews(id);
   }, [bookId]);
 
-  // ── Fetch: book detail ─────────────────────────────────────────────────────
   const fetchBook = async (id) => {
     setLoadingBook(true);
     setErrorBook(null);
@@ -60,7 +56,8 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
       const res = await apiFetch(`/books/${id}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setBook(data);
+      // Mapear el BookResponseDto al formato del frontend
+      setBook(mapBook(data));
     } catch (err) {
       console.error('Error fetching book:', err);
       setErrorBook('Could not load book details. Please try again.');
@@ -69,31 +66,31 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
     }
   };
 
-  // ── Fetch: book reviews ────────────────────────────────────────────────────
   const fetchReviews = async (id) => {
     setLoadingReviews(true);
     setErrorReviews(null);
     try {
+      // Nota: el MS actual no tiene endpoint de reviews; si falla, lo manejamos silenciosamente
       const res = await apiFetch(`/books/${id}/reviews`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setReviews(Array.isArray(data) ? data : data?.data ?? []);
     } catch (err) {
       console.error('Error fetching reviews:', err);
-      setErrorReviews('Could not load reviews.');
+      // No mostramos error para reviews ya que el MS puede no tener ese endpoint
+      setErrorReviews(null);
+      setReviews([]);
     } finally {
       setLoadingReviews(false);
     }
   };
 
-  // ── Shared retry handler ───────────────────────────────────────────────────
   const handleRetry = () => {
     const id = typeof bookId === 'object' ? bookId?.id ?? 1 : bookId ?? 1;
     if (errorBook)    fetchBook(id);
     if (errorReviews) fetchReviews(id);
   };
 
-  // ── Render: book loading skeleton ──────────────────────────────────────────
   if (loadingBook) {
     return (
       <>
@@ -113,17 +110,11 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
                 padding: isMobile ? 16 : 20,
               }}
             >
-              {/* Cover skeleton */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                <SkeletonBox
-                  width={isMobile ? 140 : 240}
-                  height={isMobile ? 186 : 320}
-                  radius={10}
-                />
+                <SkeletonBox width={isMobile ? 140 : 240} height={isMobile ? 186 : 320} radius={10} />
                 <SkeletonBox width={120} height={22} radius={4} />
                 <SkeletonBox width={160} height={12} />
               </div>
-              {/* Info skeleton */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
                 <SkeletonBox width="70%" height={28} />
                 <SkeletonBox width="40%" height={14} />
@@ -143,7 +134,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
     );
   }
 
-  // ── Render: book error ─────────────────────────────────────────────────────
   if (errorBook) {
     return (
       <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
@@ -161,7 +151,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
     );
   }
 
-  // ── Render: book not found ─────────────────────────────────────────────────
   if (!book) {
     return (
       <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
@@ -176,7 +165,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
     );
   }
 
-  // ── Render: full page ──────────────────────────────────────────────────────
   return (
     <>
       <style>{PULSE_STYLE}</style>
@@ -191,7 +179,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
         <div style={s.body}>
           <button style={s.back} onClick={() => onNavigate('discovery')}>← Back to Discovery</button>
 
-          {/* ── Book detail card ── */}
           <div style={isMobile ? s.layoutMobile : s.layout}>
             {/* Cover + availability */}
             <div style={s.left}>
@@ -211,7 +198,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
                 <Badge variant="default">Available for Loan</Badge>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  Owner: {book.owner?.name || 'Unknown'} · {book.owner?.maxDays || 14} days max
+                  Owner: {book.owner?.name || book.uploadedBy || 'Unknown'} · {book.owner?.maxDays || 14} days max
                 </p>
               </div>
             </div>
@@ -219,19 +206,20 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
             {/* Metadata + actions */}
             <div style={s.right}>
               <h1 style={s.title}>{book.title}</h1>
-              <p style={s.meta}>{book.author} · {book.year}</p>
+              <p style={s.meta}>{book.author}{book.year ? ` · ${book.year}` : ''}</p>
 
               <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-                <Tag>{book.pages} pages</Tag>
-                <Tag>{book.language}</Tag>
-                <Tag>{book.genre}</Tag>
+                {book.pages    && <Tag>{book.pages} pages</Tag>}
+                {book.pageCount && !book.pages && <Tag>{book.pageCount} pages</Tag>}
+                {book.language && <Tag>{book.language}</Tag>}
+                {book.genre    && <Tag>{book.genre}</Tag>}
               </div>
 
               <div style={s.ownerBox}>
                 <Avatar initials={book.owner?.initials || '??'} size={36} />
                 <div>
                   <p style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-primary)' }}>
-                    {book.owner?.name || 'Unknown'}
+                    {book.owner?.name || book.uploadedBy || 'Unknown'}
                   </p>
                   <Stars value={book.owner?.rating || 0} size={13} />
                 </div>
@@ -245,7 +233,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
               </div>
 
               <SectionLabel>The Story</SectionLabel>
-              <p style={s.synopsis}>{book.synopsis || 'No synopsis available for this book.'}</p>
+              <p style={s.synopsis}>{book.synopsis || book.description || 'No synopsis available for this book.'}</p>
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 20 }}>
                 <Button variant="outline" style={{ fontSize: 12, padding: '7px 16px' }}>
@@ -263,7 +251,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
           {/* ── Reviews section ── */}
           <SectionLabel>Recent Reviews</SectionLabel>
 
-          {/* Loading skeleton */}
           {loadingReviews && (
             <div style={s.reviews}>
               {[0, 1].map(i => (
@@ -282,31 +269,13 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
             </div>
           )}
 
-          {/* Error state */}
-          {!loadingReviews && errorReviews && (
-            <div style={{ padding: '16px 0' }}>
-              <p style={{ fontSize: 13, color: 'var(--crimson-light)', marginBottom: 8 }}>{errorReviews}</p>
-              <button
-                style={s.retryBtn}
-                onClick={() => {
-                  const id = typeof bookId === 'object' ? bookId?.id ?? 1 : bookId ?? 1;
-                  fetchReviews(id);
-                }}
-              >
-                Retry
-              </button>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {!loadingReviews && !errorReviews && reviews.length === 0 && (
+          {!loadingReviews && reviews.length === 0 && (
             <p style={{ fontSize: 13, color: 'var(--text-muted)', padding: '12px 0' }}>
               No reviews yet for this book.
             </p>
           )}
 
-          {/* Reviews list */}
-          {!loadingReviews && !errorReviews && reviews.length > 0 && (
+          {!loadingReviews && reviews.length > 0 && (
             <div style={s.reviews}>
               {reviews.map(r => (
                 <div key={r.id} style={s.review}>
@@ -330,7 +299,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────────
 const s = {
   body:  { padding: '20px 16px', maxWidth: 960, margin: '0 auto' },
   back: {
@@ -389,15 +357,5 @@ const s = {
     gap: 12,
     padding: '16px 0',
     borderBottom: '1px solid var(--border-light)',
-  },
-  retryBtn: {
-    background: 'none',
-    border: '1.5px solid var(--crimson)',
-    color: 'var(--crimson)',
-    padding: '6px 14px',
-    borderRadius: 6,
-    fontSize: 12,
-    fontFamily: "'DM Sans', sans-serif",
-    cursor: 'pointer',
   },
 };

@@ -126,24 +126,16 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
     setLoading(true);
     setError('');
 
+    // CreateBookDto del microservicio:
+    // { title, author, description, image, pageCount, language, uploadedBy }
     const bookData = {
-      title: form.title,
-      author: form.author,
-      year: parseInt(form.year) || new Date().getFullYear(),
-      pages: parseInt(form.pages) || 200,
-      language: form.language || 'Spanish',
-      genre: form.genre || 'Fiction',
-      color: form.color || '#7A3728',
-      condition: condition,
-      loanDays: parseInt(form.loanDays) || 14,
-      synopsis: form.description,
-      images: images.filter(Boolean),
-      cover_url: images[0] || '',
-      owner: {
-        initials: user?.initials || 'I',          // Usa 'I' de Invitado si no hay usuario
-        name: user?.name || 'Invitado',
-        rating: user?.rating || 5.0
-      }
+      title:      form.title,
+      author:     form.author,
+      description: form.description,
+      image:      images[0] || '',           // primera foto como imagen principal
+      pageCount:  parseInt(form.pages) || 200,
+      language:   form.language || 'Spanish',
+      uploadedBy: user?.name || user?.email || 'Invitado',
     };
 
     // DEBUG: Imprime el JSON del libro para validar URLs
