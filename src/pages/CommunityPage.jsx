@@ -1,9 +1,10 @@
-// src/pages/CommunityPage.jsx - Con endpoint /users/profile
+// src/pages/CommunityPage.jsx - Con endpoint /users/{id}
 
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Avatar, Tag, BookCover, Card, SectionLabel, Button } from '../components/UI';
 import { apiFetch, getBookImageUrl } from '../config/api';
+import { useUser } from '../context/UserContext';
 
 const PAGE_SIZE = 5;
 const COMMENTS_PAGE_SIZE = 5;
@@ -83,45 +84,45 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
   const [newComment, setNewComment] = useState({ content: '' });
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [commentsPage, setCommentsPage] = useState({});
-  
-  // <--- Estado para el perfil del usuario autenticado
+
+  // <--- Usuario autenticado (su id viene del UserContext, guardado al hacer login)
+  const { user } = useUser();
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
-  // <--- Obtener perfil desde /users/profile
+  // <--- Obtener perfil desde /users/{id}
   useEffect(() => {
     fetchProfile();
-  }, []);
+  }, [user?.id]);
 
   const fetchProfile = async () => {
+    // Si no hay usuario logueado, no hay id que consultar
+    if (!user?.id) {
+      setProfile(null);
+      setProfileLoading(false);
+      return;
+    }
+
+    setProfileLoading(true);
     try {
-      console.log('Llamando a /users/profile...');
-      const response = await apiFetch('/users/profile');
-      console.log('Response status:', response.status);
+      const response = await apiFetch(`/users/${user.id}`);
+      if (!response.ok) throw new Error('status ' + response.status);
       const data = await response.json();
-      console.log('Perfil recibido:', data);
-      // Normalizar la respuesta
-      const profileData = data.data || data;
+      // El microservicio responde { message, user: {...} }
+      const u = data.user || data.data || data;
       setProfile({
-        name: profileData.name || profileData.username || 'Usuario',
-        initials: profileData.initials || getInitials(profileData.name || ''),
-        ...profileData
+        ...u,
+        name: u.name || u.username || 'Usuario',
+        initials: u.initials || getInitials(u.name || ''),
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
-      // Fallback a localStorage si hay error
-      try {
-        const localUser = localStorage.getItem('bookloop_user');
-        if (localUser) {
-          const parsed = JSON.parse(localUser);
-          setProfile({
-            name: parsed.name || 'Usuario',
-            initials: parsed.initials || getInitials(parsed.name || ''),
-          });
-        }
-      } catch (e) {
-        console.error('Error parsing localStorage:', e);
-      }
+      // Fallback: usar lo que ya tenemos del contexto (guardado en login)
+      setProfile({
+        ...user,
+        name: user.name || 'Usuario',
+        initials: user.initials || getInitials(user.name || ''),
+      });
     } finally {
       setProfileLoading(false);
     }
@@ -161,7 +162,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
     try {
       const response = await apiFetch('/books');
       const result = await response.json();
-      const booksList = Array.isArray(result) ? result : (result.data || []);
+      const booksList = Array.isArray(result) ? result : (result.data || result.content || []);
       setTrendingBooks(booksList.slice(0, 3));
     } catch (error) {
       console.error('Error fetching trending books:', error);
@@ -173,12 +174,12 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       alert('Debes iniciar sesión para publicar');
       return;
     }
-    
+
     if (!newPost.title.trim() || !newPost.body.trim()) {
       alert('Por favor completa título y contenido');
       return;
     }
-    
+
     setSubmitting(true);
     try {
       const response = await apiFetch('/posts', {
@@ -268,19 +269,19 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
       alert('Debes iniciar sesión para comentar');
       return;
     }
-    
+
     if (!newComment.content.trim()) {
       alert('Escribe un comentario');
       return;
     }
-    
+
     setCommentSubmitting(true);
     try {
       const response = await apiFetch(`/posts/${postId}/comments`, {
         method: 'POST',
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           author: profile.name,
-          content: newComment.content 
+          content: newComment.content
         }),
       });
       if (!response.ok) throw new Error('status ' + response.status);
@@ -575,7 +576,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                   >
                     ← Anterior
                   </button>
-                  
+
                   <div style={s.pageNumbers}>
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       let pageNum;
@@ -606,7 +607,7 @@ export default function CommunityPage({ onNavigate = () => {}, theme, onToggleTh
                       );
                     })}
                   </div>
-                  
+
                   <button
                     style={{
                       ...s.pageBtn,
