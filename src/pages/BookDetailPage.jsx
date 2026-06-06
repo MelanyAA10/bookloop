@@ -197,7 +197,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
                 <Badge variant="default">Available for Loan</Badge>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  Owner: {book.owner?.name} · {book.owner?.maxDays || 14} days max
+                  Owner: {book.owner?.name} · {book.loanDays || book.owner?.maxDays || 14} days max
                 </p>
               </div>
             </div>
