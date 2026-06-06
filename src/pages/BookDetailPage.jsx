@@ -3,20 +3,16 @@ import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Badge, Tag, Avatar, Stars, BookCover, SectionLabel, Divider, Button } from '../components/UI';
 import { apiFetch, getBookImageUrl, mapBook, fetchUserById } from '../config/api';
+import { useUser } from '../context/UserContext';
 
 function SkeletonBox({ width = '100%', height = 16, radius = 6, style }) {
   return (
-    <div
-      style={{
-        width,
-        height,
-        borderRadius: radius,
-        background: 'var(--bg-surface)',
-        animation: 'pulse 1.4s ease-in-out infinite',
-        flexShrink: 0,
-        ...style,
-      }}
-    />
+    <div style={{
+      width, height, borderRadius: radius,
+      background: 'var(--bg-surface)',
+      animation: 'pulse 1.4s ease-in-out infinite',
+      flexShrink: 0, ...style,
+    }} />
   );
 }
 
@@ -25,16 +21,40 @@ const PULSE_STYLE = `@keyframes pulse {
   50%      { opacity: 0.45; }
 }`;
 
+const StarPicker = ({ value, onChange }) => (
+  <div style={{ display: 'flex', gap: 4 }}>
+    {[1, 2, 3, 4, 5].map(s => (
+      <button
+        key={s}
+        type="button"
+        onClick={() => onChange(s)}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontSize: 22, color: s <= value ? '#C94040' : 'var(--border)',
+          padding: 0, lineHeight: 1,
+        }}
+      >★</button>
+    ))}
+  </div>
+);
+
 export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, theme, onToggleTheme }) {
+  const { user } = useUser();
+
   const [book,    setBook]    = useState(null);
   const [reviews, setReviews] = useState([]);
 
   const [loadingBook,    setLoadingBook]    = useState(true);
   const [loadingReviews, setLoadingReviews] = useState(true);
+  const [errorBook,      setErrorBook]      = useState(null);
+  const [isMobile,       setIsMobile]       = useState(window.innerWidth <= 768);
 
-  const [errorBook, setErrorBook] = useState(null);
-
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  // Review form
+  const [reviewText,      setReviewText]      = useState('');
+  const [reviewStars,     setReviewStars]     = useState(5);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError,     setReviewError]     = useState('');
+  const [reviewSuccess,   setReviewSuccess]   = useState(false);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -55,8 +75,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
       const res = await apiFetch(`/books/${id}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-
-      // Enriquecer con el perfil real del owner via GET /api/users/{uploadedBy}
       const ownerProfile = await fetchUserById(data.uploadedBy);
       setBook(mapBook(data, ownerProfile));
     } catch (err) {
@@ -74,11 +92,47 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setReviews(Array.isArray(data) ? data : data?.data ?? []);
-    } catch (err) {
-      // Reviews es opcional; si el endpoint no existe no bloqueamos
+    } catch {
       setReviews([]);
     } finally {
       setLoadingReviews(false);
+    }
+  };
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!reviewText.trim()) { setReviewError('Escribe tu reseña antes de enviar'); return; }
+    if (reviewStars < 1)    { setReviewError('Selecciona al menos 1 estrella'); return; }
+
+    const bookIdStr = typeof bookId === 'object' ? bookId?.id : bookId;
+    const authorName = user?.name || user?.username || 'Anónimo';
+
+    setReviewSubmitting(true);
+    setReviewError('');
+    setReviewSuccess(false);
+
+    try {
+      const res = await apiFetch(`/books/${bookIdStr}/reviews`, {
+        method: 'POST',
+        body: JSON.stringify({
+          author: authorName,
+          text:   reviewText.trim(),
+          stars:  reviewStars,
+        }),
+      });
+
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      const created = await res.json();
+      setReviews(prev => [...prev, created]);
+      setReviewText('');
+      setReviewStars(5);
+      setReviewSuccess(true);
+      setTimeout(() => setReviewSuccess(false), 3000);
+    } catch (err) {
+      setReviewError('No se pudo enviar la reseña. Intenta de nuevo.');
+    } finally {
+      setReviewSubmitting(false);
     }
   };
 
@@ -96,17 +150,15 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
           <Navbar activePage="discovery" onNavigate={onNavigate} theme={theme} onToggleTheme={onToggleTheme} />
           <div style={s.body}>
             <SkeletonBox width={160} height={14} style={{ marginBottom: 20 }} />
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: isMobile ? '1fr' : '240px 1fr',
-                gap: 28,
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-light)',
-                borderRadius: 14,
-                padding: isMobile ? 16 : 20,
-              }}
-            >
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : '240px 1fr',
+              gap: 28,
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-light)',
+              borderRadius: 14,
+              padding: isMobile ? 16 : 20,
+            }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                 <SkeletonBox width={isMobile ? 140 : 240} height={isMobile ? 186 : 320} radius={10} />
                 <SkeletonBox width={120} height={22} radius={4} />
@@ -119,10 +171,8 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
                   {[80, 70, 80].map((w, i) => <SkeletonBox key={i} width={w} height={24} radius={20} />)}
                 </div>
                 <SkeletonBox height={52} radius={8} />
-                <SkeletonBox width="30%" height={11} />
                 <SkeletonBox height={13} />
                 <SkeletonBox width="85%" height={13} />
-                <SkeletonBox width="60%" height={13} />
               </div>
             </div>
           </div>
@@ -140,9 +190,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
           <p style={{ color: 'var(--crimson-light)', marginBottom: 12, fontSize: 14 }}>{errorBook}</p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
             <Button variant="outline" style={{ fontSize: 12 }} onClick={handleRetry}>Try Again</Button>
-            <Button variant="ghost"   style={{ fontSize: 12 }} onClick={() => onNavigate('discovery')}>
-              ← Back to Discovery
-            </Button>
+            <Button variant="ghost"   style={{ fontSize: 12 }} onClick={() => onNavigate('discovery')}>← Back to Discovery</Button>
           </div>
         </div>
       </div>
@@ -168,12 +216,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
     <>
       <style>{PULSE_STYLE}</style>
       <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
-        <Navbar
-          activePage="discovery"
-          onNavigate={onNavigate}
-          theme={theme}
-          onToggleTheme={onToggleTheme}
-        />
+        <Navbar activePage="discovery" onNavigate={onNavigate} theme={theme} onToggleTheme={onToggleTheme} />
 
         <div style={s.body}>
           <button style={s.back} onClick={() => onNavigate('discovery')}>← Back to Discovery</button>
@@ -213,13 +256,10 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
                 {book.genre    && <Tag>{book.genre}</Tag>}
               </div>
 
-              {/* Owner box — muestra nombre real desde /api/users/{id} */}
               <div style={s.ownerBox}>
                 <Avatar initials={book.owner?.initials || '??'} size={36} />
                 <div>
-                  <p style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-primary)' }}>
-                    {book.owner?.name}
-                  </p>
+                  <p style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-primary)' }}>{book.owner?.name}</p>
                   <Stars value={book.owner?.rating || 0} size={13} />
                 </div>
                 <Button
@@ -235,12 +275,8 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
               <p style={s.synopsis}>{book.synopsis || book.description || 'No synopsis available for this book.'}</p>
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 20 }}>
-                <Button variant="outline" style={{ fontSize: 12, padding: '7px 16px' }}>
-                  Book Condition
-                </Button>
-                <Button variant="primary" onClick={() => onNavigate('loanconfirm', { bookId: book.id })}>
-                  Request Loan →
-                </Button>
+                <Button variant="outline" style={{ fontSize: 12, padding: '7px 16px' }}>Book Condition</Button>
+                <Button variant="primary" onClick={() => onNavigate('loanconfirm', { bookId: book.id })}>Request Loan →</Button>
               </div>
             </div>
           </div>
@@ -270,18 +306,18 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
 
           {!loadingReviews && reviews.length === 0 && (
             <p style={{ fontSize: 13, color: 'var(--text-muted)', padding: '12px 0' }}>
-              No reviews yet for this book.
+              No reviews yet. Be the first to leave one!
             </p>
           )}
 
           {!loadingReviews && reviews.length > 0 && (
             <div style={s.reviews}>
-              {reviews.map(r => (
-                <div key={r.id} style={s.review}>
-                  <Avatar initials={r.initials} size={36} />
-                  <div>
+              {reviews.map((r, i) => (
+                <div key={r.id || i} style={s.review}>
+                  <Avatar initials={(r.author || r.name || '?').trim().split(/\s+/).map(p => p[0]).join('').toUpperCase().slice(0, 2)} size={36} />
+                  <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 500, fontSize: 13, marginBottom: 2, color: 'var(--text-primary)' }}>
-                      {r.name}
+                      {r.author || r.name}
                     </p>
                     <Stars value={r.stars} size={12} />
                     <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: 6 }}>
@@ -292,6 +328,42 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
               ))}
             </div>
           )}
+
+          {/* ── Write a Review ── */}
+          <Divider style={{ marginTop: 24 }} />
+          <SectionLabel>Write a Review</SectionLabel>
+
+          <div style={s.reviewForm}>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
+              Reviewing as <strong style={{ color: 'var(--text-primary)' }}>{user?.name || 'Anónimo'}</strong>
+            </p>
+
+            <StarPicker value={reviewStars} onChange={setReviewStars} />
+
+            <textarea
+              style={s.reviewTextarea}
+              placeholder={`Share your thoughts about ${book.title}...`}
+              value={reviewText}
+              onChange={e => setReviewText(e.target.value)}
+              rows={4}
+            />
+
+            {reviewError && (
+              <p style={{ fontSize: 12, color: '#DC2626', marginTop: 4 }}>{reviewError}</p>
+            )}
+            {reviewSuccess && (
+              <p style={{ fontSize: 12, color: '#16a34a', marginTop: 4 }}>✓ Review enviada correctamente</p>
+            )}
+
+            <Button
+              variant="primary"
+              style={{ alignSelf: 'flex-end', fontSize: 12, padding: '8px 20px', marginTop: 8 }}
+              onClick={handleSubmitReview}
+              disabled={reviewSubmitting}
+            >
+              {reviewSubmitting ? 'Enviando...' : 'Submit Review →'}
+            </Button>
+          </div>
         </div>
       </div>
     </>
@@ -301,60 +373,50 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
 const s = {
   body:  { padding: '20px 16px', maxWidth: 960, margin: '0 auto' },
   back: {
-    background: 'none',
-    border: 'none',
-    fontSize: 13,
-    color: 'var(--text-muted)',
-    cursor: 'pointer',
-    fontFamily: "'DM Sans', sans-serif",
-    marginBottom: 20,
-    padding: 0,
+    background: 'none', border: 'none', fontSize: 13,
+    color: 'var(--text-muted)', cursor: 'pointer',
+    fontFamily: "'DM Sans', sans-serif", marginBottom: 20, padding: 0,
   },
   layout: {
-    display: 'grid',
-    gridTemplateColumns: '240px 1fr',
-    gap: 28,
-    background: 'var(--bg-secondary)',
-    border: '1px solid var(--border-light)',
-    borderRadius: 14,
-    padding: 20,
+    display: 'grid', gridTemplateColumns: '240px 1fr', gap: 28,
+    background: 'var(--bg-secondary)', border: '1px solid var(--border-light)',
+    borderRadius: 14, padding: 20,
   },
   layoutMobile: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 20,
-    background: 'var(--bg-secondary)',
-    border: '1px solid var(--border-light)',
-    borderRadius: 14,
-    padding: 16,
+    display: 'flex', flexDirection: 'column', gap: 20,
+    background: 'var(--bg-secondary)', border: '1px solid var(--border-light)',
+    borderRadius: 14, padding: 16,
   },
   left:  { display: 'flex', flexDirection: 'column', alignItems: 'center' },
   right: { display: 'flex', flexDirection: 'column' },
   title: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: 'clamp(20px, 6vw, 28px)',
-    fontWeight: 600,
-    color: 'var(--text-primary)',
-    marginBottom: 6,
-    lineHeight: 1.2,
+    fontSize: 'clamp(20px, 6vw, 28px)', fontWeight: 600,
+    color: 'var(--text-primary)', marginBottom: 6, lineHeight: 1.2,
   },
   meta: { fontSize: 14, color: 'var(--text-muted)', marginBottom: 14 },
   ownerBox: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    background: 'var(--bg-surface)',
-    borderRadius: 8,
-    padding: '10px 14px',
-    marginBottom: 20,
-    flexWrap: 'wrap',
+    display: 'flex', alignItems: 'center', gap: 10,
+    background: 'var(--bg-surface)', borderRadius: 8,
+    padding: '10px 14px', marginBottom: 20, flexWrap: 'wrap',
   },
   synopsis: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 },
   reviews: { display: 'flex', flexDirection: 'column', gap: 0 },
   review: {
-    display: 'flex',
-    gap: 12,
-    padding: '16px 0',
+    display: 'flex', gap: 12, padding: '16px 0',
     borderBottom: '1px solid var(--border-light)',
+  },
+  reviewForm: {
+    display: 'flex', flexDirection: 'column', gap: 12,
+    background: 'var(--bg-secondary)', border: '1px solid var(--border-light)',
+    borderRadius: 12, padding: 20, marginTop: 8,
+  },
+  reviewTextarea: {
+    width: '100%', padding: '10px 12px',
+    border: '1.5px solid var(--border)', borderRadius: 8,
+    fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+    background: 'var(--bg-primary)', color: 'var(--text-primary)',
+    resize: 'vertical', outline: 'none', boxSizing: 'border-box',
+    minHeight: 90,
   },
 };
