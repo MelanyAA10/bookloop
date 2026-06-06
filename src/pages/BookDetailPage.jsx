@@ -49,12 +49,11 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
   const [errorBook,      setErrorBook]      = useState(null);
   const [isMobile,       setIsMobile]       = useState(window.innerWidth <= 768);
 
-  // Review form
-  const [reviewText,      setReviewText]      = useState('');
-  const [reviewStars,     setReviewStars]     = useState(5);
+  const [reviewText,       setReviewText]       = useState('');
+  const [reviewStars,      setReviewStars]      = useState(5);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const [reviewError,     setReviewError]     = useState('');
-  const [reviewSuccess,   setReviewSuccess]   = useState(false);
+  const [reviewError,      setReviewError]      = useState('');
+  const [reviewSuccess,    setReviewSuccess]    = useState(false);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -120,9 +119,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
           stars:  reviewStars,
         }),
       });
-
       if (!res.ok) throw new Error('HTTP ' + res.status);
-
       const created = await res.json();
       setReviews(prev => [...prev, created]);
       setReviewText('');
@@ -141,7 +138,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
     fetchBook(id);
   };
 
-  // ── Skeleton ──────────────────────────────────────────────────────────────
   if (loadingBook) {
     return (
       <>
@@ -181,7 +177,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
     );
   }
 
-  // ── Error ─────────────────────────────────────────────────────────────────
   if (errorBook) {
     return (
       <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
@@ -190,7 +185,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
           <p style={{ color: 'var(--crimson-light)', marginBottom: 12, fontSize: 14 }}>{errorBook}</p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
             <Button variant="outline" style={{ fontSize: 12 }} onClick={handleRetry}>Try Again</Button>
-            <Button variant="ghost"   style={{ fontSize: 12 }} onClick={() => onNavigate('discovery')}>← Back to Discovery</Button>
+            <Button variant="ghost" style={{ fontSize: 12 }} onClick={() => onNavigate('discovery')}>← Back to Discovery</Button>
           </div>
         </div>
       </div>
@@ -211,7 +206,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
     );
   }
 
-  // ── Full page ─────────────────────────────────────────────────────────────
   return (
     <>
       <style>{PULSE_STYLE}</style>
@@ -222,7 +216,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
           <button style={s.back} onClick={() => onNavigate('discovery')}>← Back to Discovery</button>
 
           <div style={isMobile ? s.layoutMobile : s.layout}>
-            {/* Cover + availability */}
             <div style={s.left}>
               <BookCover
                 color={book.color || '#7A3728'}
@@ -245,7 +238,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
               </div>
             </div>
 
-            {/* Metadata + actions */}
             <div style={s.right}>
               <h1 style={s.title}>{book.title}</h1>
               <p style={s.meta}>{book.author}{book.year ? ` · ${book.year}` : ''}</p>
@@ -273,17 +265,11 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
 
               <SectionLabel>The Story</SectionLabel>
               <p style={s.synopsis}>{book.synopsis || book.description || 'No synopsis available for this book.'}</p>
-
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 20 }}>
-                <Button variant="outline" style={{ fontSize: 12, padding: '7px 16px' }}>Book Condition</Button>
-                <Button variant="primary" onClick={() => onNavigate('loanconfirm', { bookId: book.id })}>Request Loan →</Button>
-              </div>
             </div>
           </div>
 
           <Divider style={{ marginTop: 36 }} />
 
-          {/* ── Reviews ── */}
           <SectionLabel>Recent Reviews</SectionLabel>
 
           {loadingReviews && (
@@ -329,7 +315,6 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
             </div>
           )}
 
-          {/* ── Write a Review ── */}
           <Divider style={{ marginTop: 24 }} />
           <SectionLabel>Write a Review</SectionLabel>
 

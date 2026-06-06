@@ -32,15 +32,9 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
   const fetchBooks = async () => {
     setLoading(true);
     try {
-      // El MS devuelve PagedResponseDto: { content, page, size, totalElements, totalPages }
       const response = await apiFetch('/books?size=100');
       const result = await response.json();
-
-      // Extraer el array de libros
       const rawBooks = result?.content ?? (Array.isArray(result) ? result : []);
-
-      // Enriquecer cada libro con el perfil del owner via GET /api/users/{uploadedBy}
-      // Se hacen en paralelo para no bloquear
       const booksWithOwners = await Promise.all(
         rawBooks.map(async (book) => {
           const ownerProfile = await fetchUserById(book.uploadedBy);
@@ -72,7 +66,6 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
 
   const featuredBook = books[0] ?? null;
   const alsoAvailable = books.slice(1, 4);
-
   const coverW = isMobile ? COVER_W_MOBILE : COVER_W;
   const coverH = isMobile ? COVER_H_MOBILE : COVER_H;
 
@@ -81,7 +74,6 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
       <Navbar activePage="discovery" onNavigate={onNavigate} theme={theme} onToggleTheme={onToggleTheme} />
 
       <div style={s.body}>
-        {/* Search */}
         <div style={s.searchRow}>
           <input
             style={s.searchInput}
@@ -91,7 +83,6 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
           />
         </div>
 
-        {/* Genres */}
         <div style={s.genreTags}>
           {GENRES.map(g => (
             <Tag key={g} active={activeGenre === g} onClick={() => setActiveGenre(g)}>{g}</Tag>
@@ -114,7 +105,6 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
 
         {!loading && featuredBook && (
           <>
-            {/* ── Featured card ── */}
             <div style={isMobile ? s.featuredMobile : s.featured}>
               <BookCover
                 color={featuredBook.color}
@@ -130,9 +120,9 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
                 <h2 style={s.featuredTitle}>{featuredBook.title}</h2>
                 <p style={s.featuredMeta}>{featuredBook.author}{featuredBook.year ? ` · ${featuredBook.year}` : ''}</p>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-                  {featuredBook.pages  && <Tag>{featuredBook.pages} pages</Tag>}
+                  {featuredBook.pages    && <Tag>{featuredBook.pages} pages</Tag>}
                   {featuredBook.language && <Tag>{featuredBook.language}</Tag>}
-                  {featuredBook.genre  && <Tag>{featuredBook.genre}</Tag>}
+                  {featuredBook.genre    && <Tag>{featuredBook.genre}</Tag>}
                 </div>
                 <div style={s.ownerRow}>
                   <Avatar initials={featuredBook.owner?.initials || '??'} size={28} />
@@ -146,25 +136,16 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
                   </>
                 )}
                 <div style={s.featuredActions}>
-                  <button style={s.btnOutline} onClick={() => onNavigate('bookdetail', { id: featuredBook.id })}>Book Info</button>
-                  <button style={s.btnPrimary} onClick={() => onNavigate('bookdetail', { id: featuredBook.id })}>Request Loan →</button>
+                  <button style={s.btnPrimary} onClick={() => onNavigate('bookdetail', { id: featuredBook.id })}>Book Info →</button>
                 </div>
               </div>
 
-              {/* Also Available — sidebar */}
               {!isMobile && alsoAvailable.length > 0 && (
                 <div style={s.sidebar}>
                   <SectionLabel>Also Available</SectionLabel>
                   {alsoAvailable.map(book => (
                     <div key={book.id} style={s.alsoItem} onClick={() => onNavigate('bookdetail', { id: book.id })}>
-                      <BookCover
-                        color={book.color}
-                        title={book.title}
-                        imageUrl={getBookImageUrl(book)}
-                        width={40}
-                        height={56}
-                        style={{ borderRadius: 4, flexShrink: 0 }}
-                      />
+                      <BookCover color={book.color} title={book.title} imageUrl={getBookImageUrl(book)} width={40} height={56} style={{ borderRadius: 4, flexShrink: 0 }} />
                       <div style={s.alsoInfo}>
                         <p style={s.alsoTitle}>{book.title}</p>
                         <p style={s.alsoAuthor}>{book.author}</p>
@@ -175,7 +156,6 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
               )}
             </div>
 
-            {/* Also Available mobile */}
             {isMobile && alsoAvailable.length > 0 && (
               <div style={{ marginTop: 20 }}>
                 <SectionLabel style={{ marginBottom: 12 }}>Also Available</SectionLabel>
@@ -191,27 +171,17 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
               </div>
             )}
 
-            {/* ── Recent Additions ── */}
             <div style={{ marginTop: 36 }}>
               <SectionLabel style={{ marginBottom: 16, fontSize: 12 }}>Recent Additions</SectionLabel>
-
               <div style={isMobile ? s.gridMobile : s.grid}>
                 {paginatedBooks.map(book => (
-                  <div
-                    key={book.id}
-                    style={s.gridItem}
-                    onClick={() => onNavigate('bookdetail', { id: book.id })}
-                  >
+                  <div key={book.id} style={s.gridItem} onClick={() => onNavigate('bookdetail', { id: book.id })}>
                     <div
                       style={{
-                        width: coverW,
-                        height: coverH,
-                        borderRadius: 8,
-                        overflow: 'hidden',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        width: coverW, height: coverH, borderRadius: 8,
+                        overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                         transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                        cursor: 'pointer',
-                        flexShrink: 0,
+                        cursor: 'pointer', flexShrink: 0,
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.transform = 'translateY(-4px)';
@@ -222,14 +192,7 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
                         e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
                       }}
                     >
-                      <BookCover
-                        color={book.color}
-                        title={book.title}
-                        imageUrl={getBookImageUrl(book)}
-                        width={coverW}
-                        height={coverH}
-                        style={{ borderRadius: 0 }}
-                      />
+                      <BookCover color={book.color} title={book.title} imageUrl={getBookImageUrl(book)} width={coverW} height={coverH} style={{ borderRadius: 0 }} />
                     </div>
                     <p style={{ ...s.gridTitle, width: coverW }}>{book.title}</p>
                     <p style={{ ...s.gridAuthor, width: coverW }}>{book.author}</p>
@@ -256,175 +219,77 @@ const s = {
   body: { padding: '20px 16px', maxWidth: 1280, margin: '0 auto' },
   searchRow: { marginBottom: 16 },
   searchInput: {
-    padding: '10px 16px',
-    border: '1.5px solid var(--border)',
-    borderRadius: 8,
-    fontSize: 13,
-    fontFamily: "'DM Sans', sans-serif",
-    background: 'var(--bg-secondary)',
-    color: 'var(--text-primary)',
-    width: '100%',
-    outline: 'none',
+    padding: '10px 16px', border: '1.5px solid var(--border)', borderRadius: 8,
+    fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+    background: 'var(--bg-secondary)', color: 'var(--text-primary)',
+    width: '100%', outline: 'none',
   },
   genreTags: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 },
   featured: {
-    display: 'grid',
-    gridTemplateColumns: '200px 1fr 220px',
-    gap: 28,
-    background: 'var(--bg-secondary)',
-    border: '1px solid var(--border-light)',
-    borderRadius: 14,
-    padding: 28,
-    boxShadow: 'var(--shadow)',
+    display: 'grid', gridTemplateColumns: '200px 1fr 220px', gap: 28,
+    background: 'var(--bg-secondary)', border: '1px solid var(--border-light)',
+    borderRadius: 14, padding: 28, boxShadow: 'var(--shadow)',
   },
   featuredMobile: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 16,
-    background: 'var(--bg-secondary)',
-    border: '1px solid var(--border-light)',
-    borderRadius: 14,
-    padding: 16,
-    boxShadow: 'var(--shadow)',
+    display: 'flex', flexDirection: 'column', gap: 16,
+    background: 'var(--bg-secondary)', border: '1px solid var(--border-light)',
+    borderRadius: 14, padding: 16, boxShadow: 'var(--shadow)',
   },
   featuredInfo: { display: 'flex', flexDirection: 'column' },
   featuredTitle: {
-    fontFamily: "'Playfair Display', serif",
-    fontSize: 'clamp(18px, 5vw, 24px)',
-    fontWeight: 600,
-    color: 'var(--text-primary)',
-    marginBottom: 4,
-    lineHeight: 1.3,
+    fontFamily: "'Playfair Display', serif", fontSize: 'clamp(18px, 5vw, 24px)',
+    fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4, lineHeight: 1.3,
   },
   featuredMeta: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 },
   ownerRow: { display: 'flex', alignItems: 'center', gap: 8 },
   synopsis: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 20 },
   featuredActions: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 },
-  btnOutline: {
-    background: 'transparent',
-    border: '1.5px solid var(--crimson)',
-    color: 'var(--crimson)',
-    padding: '7px 14px',
-    borderRadius: 6,
-    fontSize: 12,
-    fontFamily: "'DM Sans', sans-serif",
-    fontWeight: 500,
-    cursor: 'pointer',
-  },
   btnPrimary: {
-    background: 'var(--crimson-light)',
-    border: 'none',
-    color: '#fff',
-    padding: '8px 18px',
-    borderRadius: 6,
-    fontSize: 12,
-    fontFamily: "'DM Sans', sans-serif",
-    fontWeight: 500,
-    cursor: 'pointer',
+    background: 'var(--crimson-light)', border: 'none', color: '#fff',
+    padding: '8px 18px', borderRadius: 6, fontSize: 12,
+    fontFamily: "'DM Sans', sans-serif", fontWeight: 500, cursor: 'pointer',
     boxShadow: '0 2px 8px rgba(139,28,28,0.28)',
   },
   sidebar: { display: 'flex', flexDirection: 'column', gap: 4 },
   alsoItem: {
-    display: 'flex',
-    gap: 10,
-    alignItems: 'center',
-    cursor: 'pointer',
-    padding: '8px 0',
-    borderBottom: '1px solid var(--border-light)',
+    display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer',
+    padding: '8px 0', borderBottom: '1px solid var(--border-light)',
   },
   alsoInfo: { flex: 1, minWidth: 0 },
   alsoTitle: {
-    fontSize: 12,
-    fontWeight: 500,
-    color: 'var(--text-primary)',
-    marginBottom: 2,
-    lineHeight: 1.3,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    margin: 0,
+    fontSize: 12, fontWeight: 500, color: 'var(--text-primary)',
+    marginBottom: 2, lineHeight: 1.3,
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0,
   },
   alsoAuthor: {
-    fontSize: 11,
-    color: 'var(--text-muted)',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    margin: 0,
+    fontSize: 11, color: 'var(--text-muted)',
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0,
   },
   grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-    gap: 28,
-    justifyItems: 'center',
+    display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gap: 28, justifyItems: 'center',
   },
   gridMobile: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: 20,
-    justifyItems: 'center',
+    display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: 20, justifyItems: 'center',
   },
-  gridItem: {
-    cursor: 'pointer',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 8,
-  },
-  gridTitle: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: 'var(--text-primary)',
-    lineHeight: 1.3,
-    margin: 0,
-    textAlign: 'center',
-  },
-  gridAuthor: {
-    fontSize: 12,
-    color: 'var(--text-muted)',
-    margin: 0,
-    textAlign: 'center',
-  },
+  gridItem: { cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 },
+  gridTitle: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3, margin: 0, textAlign: 'center' },
+  gridAuthor: { fontSize: 12, color: 'var(--text-muted)', margin: 0, textAlign: 'center' },
   emptyState: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '60px 20px',
-    gap: 10,
-    textAlign: 'center',
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    justifyContent: 'center', padding: '60px 20px', gap: 10, textAlign: 'center',
   },
-  emptyTitle: {
-    fontFamily: "'Playfair Display', serif",
-    fontSize: 20,
-    fontWeight: 600,
-    color: 'var(--text-primary)',
-    margin: 0,
-  },
+  emptyTitle: { fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', margin: 0 },
   emptySubtitle: { fontSize: 13, color: 'var(--text-muted)', margin: 0 },
   pagination: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 24,
-    padding: '16px 0',
-    flexWrap: 'wrap',
+    display: 'flex', justifyContent: 'center', alignItems: 'center',
+    gap: 12, marginTop: 24, padding: '16px 0', flexWrap: 'wrap',
   },
   pageBtn: {
-    background: 'var(--crimson)',
-    color: '#fff',
-    border: 'none',
-    padding: '8px 16px',
-    borderRadius: 6,
-    cursor: 'pointer',
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: 12,
-    fontWeight: 500,
+    background: 'var(--crimson)', color: '#fff', border: 'none',
+    padding: '8px 16px', borderRadius: 6, cursor: 'pointer',
+    fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 500,
   },
-  pageInfo: {
-    fontSize: 13,
-    color: 'var(--text-secondary)',
-    fontFamily: "'DM Sans', sans-serif",
-  },
+  pageInfo: { fontSize: 13, color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" },
 };
