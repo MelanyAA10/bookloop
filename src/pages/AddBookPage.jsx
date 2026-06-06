@@ -150,6 +150,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
         initials: ownerInitials,
         name:     ownerName,
         rating:   user?.rating || 5.0,
+        maxDays:  parseInt(form.loanDays) || 14,
       },
     };
 
