@@ -50,7 +50,7 @@ async function uploadToCloudinary(file) {
 }
 
 export default function AddBookPage({ onNavigate = () => {}, theme, onToggleTheme }) {
-  const user = useUser();
+  const { user } = useUser();   // useUser() returns { user, login, logout }
   const [form, setForm] = useState({
     title: '', author: '', genre: '', language: '', description: '', loanDays: '14',
     year: new Date().getFullYear(), pages: '', color: '#7A3728', condition: 'Good'
@@ -135,7 +135,8 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
       image:      images[0] || '',           // primera foto como imagen principal
       pageCount:  parseInt(form.pages) || 200,
       language:   form.language || 'Spanish',
-      uploadedBy: user?.name || user?.email || 'Invitado',
+      // uploadedBy debe ser el ID del usuario autenticado, no su nombre
+      uploadedBy: user?.id || user?.sub || user?.userId || user?.email || '',
     };
 
     // DEBUG: Imprime el JSON del libro para validar URLs
