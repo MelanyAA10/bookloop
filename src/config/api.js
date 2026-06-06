@@ -18,10 +18,6 @@ export const getBookImageUrl = (book) => {
   return null;
 };
 
-/**
- * Obtiene el perfil de un usuario por su ID desde /api/users/{id}
- * Si falla o no existe, retorna null silenciosamente.
- */
 export const fetchUserById = async (userId) => {
   if (!userId || userId === '' || userId === 'Invitado') return null;
   try {
@@ -34,14 +30,21 @@ export const fetchUserById = async (userId) => {
   }
 };
 
-/**
- * Mapea un libro crudo del backend al formato que usan los componentes.
- * ownerProfile viene de fetchUserById(book.uploadedBy) — puede ser null.
- */
 export const mapBook = (book, ownerProfile = null) => {
-  const ownerName = ownerProfile?.name || ownerProfile?.username || book.owner?.name || 'Unknown';
-  const ownerInitials = ownerProfile?.initials
-    || (ownerName !== 'Unknown' ? ownerName.trim().split(/\s+/).map(p => p[0]).join('').toUpperCase().slice(0, 2) : '??');
+  const ownerName =
+    ownerProfile?.name ||
+    ownerProfile?.username ||
+    book.owner?.name ||
+    'Unknown';
+
+  const ownerInitials =
+    ownerProfile?.initials ||
+    (ownerName !== 'Unknown'
+      ? ownerName.trim().split(/\s+/).map(p => p[0]).join('').toUpperCase().slice(0, 2)
+      : '??');
+
+  // loanDays viene del backend directamente
+  const loanDays = book.loanDays > 0 ? book.loanDays : 14;
 
   return {
     id:          book.id,
@@ -60,11 +63,12 @@ export const mapBook = (book, ownerProfile = null) => {
     synopsis:    book.synopsis    || book.description || null,
     description: book.description || book.synopsis   || null,
     uploadedBy:  book.uploadedBy  || null,
+    loanDays:    loanDays,
     owner: {
       name:     ownerName,
       initials: ownerInitials,
       rating:   ownerProfile?.rating  || book.owner?.rating  || 0,
-      maxDays:  ownerProfile?.maxDays || book.owner?.maxDays || 14,
+      maxDays:  loanDays,
     },
   };
 };
