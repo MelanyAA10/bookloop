@@ -501,13 +501,13 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
             {showActions && (
               <div style={{ background: 'var(--bg-secondary)', borderTop: '1px solid var(--border-light)', padding: '10px 14px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
-                  onClick={() => { setModal('condition'); setShowActions(false); }}
+                  onClick={() => { onNavigate('loanconfirm', { bookId: activeConv?.bookId }); setShowActions(false); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 20, border: '1.5px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 12, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', fontWeight: 500 }}
                 >
                   <BookIcon size={13} color="var(--text-primary)" /> Share Book Condition
                 </button>
                 <button
-                  onClick={() => { setModal('loan'); setShowActions(false); }}
+                  onClick={() => { onNavigate('loanreturn'); setShowActions(false); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 20, border: 'none', background: 'var(--crimson)', color: '#fff', fontSize: 12, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', fontWeight: 500 }}
                 >
                   <MailIcon size={13} color="#fff" /> Send Loan Request
