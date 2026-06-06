@@ -1,5 +1,4 @@
 // src/pages/AddBookPage.jsx - Responsive version
-// src/pages/AddBookPage.jsx
 import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Button, Input, Textarea, Divider } from '../components/UI';
@@ -26,27 +25,19 @@ function validatePages(val) {
   return '';
 }
 
-/**
- * Sube un archivo a Cloudinary y retorna la URL pública.
- */
 async function uploadToCloudinary(file) {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', 'bookloop_preset');
 
-  try {
-    const response = await fetch('https://api.cloudinary.com/v1_1/dkjzvjeln/image/upload', {
-      method: 'POST',
-      body: formData,
-    });
+  const response = await fetch('https://api.cloudinary.com/v1_1/dkjzvjeln/image/upload', {
+    method: 'POST',
+    body: formData,
+  });
 
-    if (!response.ok) throw new Error('Cloudinary upload failed');
-    const data = await response.json();
-    return data.secure_url;
-  } catch (error) {
-    console.error('Error uploading to Cloudinary:', error);
-    throw error;
-  }
+  if (!response.ok) throw new Error('Cloudinary upload failed');
+  const data = await response.json();
+  return data.secure_url;
 }
 
 export default function AddBookPage({ onNavigate = () => {}, theme, onToggleTheme }) {
@@ -64,7 +55,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
   const [fieldErrors, setFieldErrors] = useState({ year: '', pages: '' });
   const [fieldTouched, setFieldTouched] = useState({ year: false, pages: false });
   const [imageError, setImageError] = useState('');
-  const [uploadingImage, setUploadingImage] = useState(null); // null, 0, 1, 2, 3 (índice de imagen)
+  const [uploadingImage, setUploadingImage] = useState(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -88,10 +79,9 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
   };
 
   const handleImageSelect = async (index, file) => {
-  if (!file) return;
+    if (!file) return;
 
-  // Validar formato de imagen 
-  const validFormats = ['image/jpeg', 'image/jpg', 'image/png'];
+    const validFormats = ['image/jpeg', 'image/jpg', 'image/png'];
     if (!validFormats.includes(file.type)) {
       setImageError('Formato no válido. Por favor, sube solo imágenes en formato .jpg, .jpeg o .png');
       return;
@@ -104,7 +94,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
       const url = await uploadToCloudinary(file);
       setImages(prev => prev.map((v, i) => i === index ? url : v));
       if (index === 0) setCoverImgError(false);
-    } catch (error) {
+    } catch {
       setImageError('Error al subir la imagen. Intenta de nuevo.');
     } finally {
       setUploadingImage(null);
@@ -121,42 +111,44 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
 
     if (!form.title.trim()) { setError('El título es requerido'); return; }
     if (!form.author.trim()) { setError('El autor es requerido'); return; }
+    if (!form.description.trim()) { setError('La descripción es requerida'); return; }
+    if (!form.language.trim()) { setError('El idioma es requerido'); return; }
     if (yearErr || pagesErr) return;
 
     setLoading(true);
     setError('');
 
+    // Mapeado exacto al DTO del backend:
+    // title, author, description, image (string), pageCount (int), language, uploadedBy
     const bookData = {
-      title: form.title,
-      author: form.author,
-      year: parseInt(form.year) || new Date().getFullYear(),
-      pages: parseInt(form.pages) || 200,
-      language: form.language || 'Spanish',
-      genre: form.genre || 'Fiction',
-      color: form.color || '#7A3728',
-      condition: condition,
-      loanDays: parseInt(form.loanDays) || 14,
-      synopsis: form.description,
-      images: images.filter(Boolean),
-      cover_url: images[0] || '',
-      owner: {
-        initials: user?.initials || 'I',          // Usa 'I' de Invitado si no hay usuario
-        name: user?.name || 'Invitado',
-        rating: user?.rating || 5.0
-      }
+      title:       form.title.trim(),
+      author:      form.author.trim(),
+      description: form.description.trim(),
+      image:       images[0] || '',          // cover URL (string, no array)
+      pageCount:   parseInt(form.pages, 10), // backend espera "pageCount", no "pages"
+      language:    form.language.trim(),
+      uploadedBy:  user?.name || 'Invitado', // backend espera "uploadedBy", no "owner"
     };
 
-    // DEBUG: Imprime el JSON del libro para validar URLs
-    console.log(' Libro a enviar:', JSON.stringify(bookData, null, 2));
-
     try {
-      const response = await apiFetch('/books', {
+      const response = await apiFetch('/v1/books', {
         method: 'POST',
         body: JSON.stringify(bookData),
       });
-      if (response.ok) onNavigate('discovery');
-      else setError('Error al crear el libro');
-    } catch (error) {
+
+      if (response.ok) {
+        onNavigate('discovery');
+      } else {
+        // El backend devuelve { campo: "mensaje" } en 400
+        const errBody = await response.json().catch(() => null);
+        if (errBody && typeof errBody === 'object') {
+          const msgs = Object.values(errBody).join(', ');
+          setError(`Error de validación: ${msgs}`);
+        } else {
+          setError(`Error al crear el libro (${response.status})`);
+        }
+      }
+    } catch {
       setError('Error de conexión con el servidor');
     } finally {
       setLoading(false);
@@ -218,20 +210,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
                 <Input label="Book Title" placeholder="e.g. Cien Años de Soledad" value={form.title} onChange={set('title')} required />
                 <Input label="Author" placeholder="e.g. Gabriel García Márquez" value={form.author} onChange={set('author')} required />
                 <div style={isMobile ? s.rowMobile : s.row}>
-                  <Input label="Genre" placeholder="Fiction" value={form.genre} onChange={set('genre')} style={{ flex: 1 }} />
-                  <Input label="Language" placeholder="Spanish" value={form.language} onChange={set('language')} style={{ flex: 1 }} />
-                </div>
-                <div style={isMobile ? s.rowMobile : s.row}>
-                  <Input
-                    label="Year"
-                    placeholder="2024"
-                    type="number"
-                    value={form.year}
-                    onChange={set('year')}
-                    onBlur={() => handleFieldBlur('year')}
-                    error={fieldErrors.year}
-                    style={{ flex: 1 }}
-                  />
+                  <Input label="Language" placeholder="Spanish" value={form.language} onChange={set('language')} style={{ flex: 1 }} required />
                   <Input
                     label="Pages"
                     placeholder="200"
@@ -246,7 +225,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
               </div>
             </div>
 
-            <Textarea label="Description" placeholder="Tell borrowers about this book…" value={form.description} onChange={set('description')} style={{ marginBottom: 4 }} />
+            <Textarea label="Description" placeholder="Tell borrowers about this book…" value={form.description} onChange={set('description')} style={{ marginBottom: 4 }} required />
 
             <Divider />
 
@@ -292,8 +271,6 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
             {imageError && <div style={s.errorImageMsg}>{imageError}</div>}
 
             <Divider />
-
-            <Input label="Loan Period (days)" type="number" placeholder="14" value={form.loanDays} onChange={set('loanDays')} style={{ maxWidth: '100%', marginBottom: 20 }} />
 
             <Button
               variant="full"
@@ -383,6 +360,7 @@ const s = {
   },
   photoGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 },
   photoGridMobile: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 },
+  photoBox: {},
   errorMsg: {
     background: '#FEE2E2',
     color: '#DC2626',
