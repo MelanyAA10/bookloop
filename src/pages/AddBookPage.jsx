@@ -45,7 +45,6 @@ async function uploadToCloudinary(file) {
 }
 
 export default function AddBookPage({ onNavigate = () => {}, theme, onToggleTheme }) {
-  // ✅ CORRECCIÓN: desestructurar { user } del contexto
   const { user } = useUser();
 
   const [form, setForm] = useState({
@@ -122,17 +121,20 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
     setLoading(true);
     setError('');
 
-    // ✅ CORRECCIÓN: leer el ID real del usuario autenticado
     const userId = user?.id ?? user?.sub ?? user?.userId ?? user?.email ?? '';
 
-    console.log('👤 user en AddBook:', JSON.stringify(user, null, 2));
-    console.log('📌 uploadedBy que se enviará:', userId);
+    const ownerName = user?.name || user?.username || 'Unknown';
+    const ownerInitials = user?.initials ||
+      (ownerName !== 'Unknown'
+        ? ownerName.trim().split(/\s+/).map(p => p[0]).join('').toUpperCase().slice(0, 2)
+        : '??');
 
+    // ✅ pageCount en lugar de pages — campo requerido por el backend
     const bookData = {
       title:       form.title,
       author:      form.author,
       year:        parseInt(form.year) || new Date().getFullYear(),
-      pages:       parseInt(form.pages) || 200,
+      pageCount:   parseInt(form.pages) || 200,
       language:    form.language || 'Spanish',
       genre:       form.genre || 'Fiction',
       color:       form.color || '#7A3728',
@@ -143,16 +145,13 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
       image:       images[0] || '',
       images:      images.filter(Boolean),
       cover_url:   images[0] || '',
-      // ✅ uploadedBy usa el ID real, no el nombre
       uploadedBy:  userId,
       owner: {
-        initials: user?.initials || (user?.name ? user.name.trim().split(/\s+/).map(p => p[0]).join('').toUpperCase().slice(0, 2) : '??'),
-        name:     user?.name || user?.username || 'Unknown',
+        initials: ownerInitials,
+        name:     ownerName,
         rating:   user?.rating || 5.0,
       },
     };
-
-    console.log('📚 bookData a enviar:', JSON.stringify(bookData, null, 2));
 
     try {
       const response = await apiFetch('/books', {
@@ -160,7 +159,10 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
         body: JSON.stringify(bookData),
       });
       if (response.ok) onNavigate('discovery');
-      else setError('Error al crear el libro');
+      else {
+        const errData = await response.json().catch(() => ({}));
+        setError(errData?.message || JSON.stringify(errData) || 'Error al crear el libro');
+      }
     } catch (error) {
       setError('Error de conexión con el servidor');
     } finally {
@@ -269,7 +271,6 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
               {PHOTO_LABELS.map((label, i) => (
                 <label key={label} style={{ cursor: 'pointer', display: 'block' }}>
                   <div style={{
-                    ...s.photoBox,
                     background: images[i] ? `url(${images[i]}) center/cover` : 'var(--bg-surface)',
                     border: '1.5px solid var(--border)',
                     borderRadius: 6,
@@ -388,7 +389,6 @@ const s = {
   },
   photoGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 },
   photoGridMobile: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 },
-  photoBox: {},
   errorMsg: {
     background: '#FEE2E2',
     color: '#DC2626',
