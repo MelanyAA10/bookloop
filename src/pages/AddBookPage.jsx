@@ -208,19 +208,17 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
               </div>
             )}
 
-            {/* Cover + Fields */}
-            <div style={isMobile ? s.layoutTablet : s.layout}>
+            {/* Cover + Fields — always horizontal */}
+            <div style={s.layout}>
 
               {/* Cover Upload */}
               <div style={s.coverZone}>
-                <p style={s.coverLabel}>Book Cover</p>
-                <label style={{ cursor: 'pointer', display: 'block', flex: 1 }}>
+                <label style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 0 }}>
                   <div
                     style={{
                       ...s.coverUpload,
-                      ...(isMobile ? { height: 155 } : {}),
                       ...(dragOver ? s.coverDragOver : {}),
-                      ...(showCover ? { padding: 0, border: 'none' } : {}),
+                      ...(showCover ? { padding: 0, border: 'none', borderRadius: 10 } : {}),
                     }}
                     onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                     onDragLeave={() => setDragOver(false)}
@@ -229,7 +227,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
                     {uploadingCover ? (
                       <div style={s.uploadingState}>
                         <div style={s.spinner} />
-                        <span style={s.uploadingText}>Uploading…</span>
+                        <span style={s.uploadingText}>Subiendo…</span>
                       </div>
                     ) : showCover ? (
                       <div style={s.coverImageWrapper}>
@@ -241,7 +239,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
                         />
                         <div style={s.coverOverlay}>
                           <UploadIcon />
-                          <span style={{ fontSize: 11, marginTop: 6, fontWeight: 600 }}>Change cover</span>
+                          <span style={{ fontSize: 10, marginTop: 4, fontWeight: 600, letterSpacing: '0.5px' }}>Cambiar</span>
                         </div>
                       </div>
                     ) : (
@@ -267,13 +265,13 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
 
               {/* Fields */}
               <div style={s.fields}>
-                <Input label="Book Title" placeholder="e.g. Cien Años de Soledad" value={form.title} onChange={set('title')} required />
-                <Input label="Author" placeholder="e.g. Gabriel García Márquez" value={form.author} onChange={set('author')} required />
-                <div style={isMobile ? s.rowMobile : s.row}>
+                <div style={s.row}>
+                  <Input label="Book Title" placeholder="e.g. Cien Años de Soledad" value={form.title} onChange={set('title')} required style={{ flex: 2 }} />
+                  <Input label="Author" placeholder="e.g. Gabriel García Márquez" value={form.author} onChange={set('author')} required style={{ flex: 2 }} />
+                </div>
+                <div style={s.row}>
                   <Input label="Genre" placeholder="Fiction" value={form.genre} onChange={set('genre')} style={{ flex: 1 }} />
                   <Input label="Language" placeholder="Spanish" value={form.language} onChange={set('language')} style={{ flex: 1 }} />
-                </div>
-                <div style={isMobile ? s.rowMobile : s.row}>
                   <Input
                     label="Year" placeholder="2024" type="number"
                     value={form.year} onChange={set('year')}
@@ -406,15 +404,27 @@ const s = {
     flexShrink: 0, transition: 'background 0.15s',
   },
   body: { padding: '22px 22px 24px', display: 'flex', flexDirection: 'column', gap: 16 },
-  layout: { display: 'grid', gridTemplateColumns: '120px 1fr', gap: 18, alignItems: 'start' },
+  layout: { display: 'grid', gridTemplateColumns: '110px 1fr', gap: 16, alignItems: 'start' },
   layoutTablet: { display: 'grid', gridTemplateColumns: '110px 1fr', gap: 14, alignItems: 'start' },
-  coverZone: { display: 'flex', flexDirection: 'column', gap: 8 },
+  coverZone: { display: 'flex', flexDirection: 'column' },
   coverLabel: {
     fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
     textTransform: 'uppercase', letterSpacing: '0.8px', margin: 0,
   },
   coverUpload: {
-    height: 175,
+    height: 155,
+    background: 'linear-gradient(160deg, var(--bg-surface) 0%, rgba(139,28,28,0.04) 100%)',
+    border: '1.5px dashed rgba(139,28,28,0.3)',
+    borderRadius: 10,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    overflow: 'hidden',
+    transition: 'border-color 0.2s, background 0.2s, box-shadow 0.2s',
+    position: 'relative',
+    boxShadow: '0 2px 12px rgba(139,28,28,0.06)',
+  },
     background: 'var(--bg-surface)',
     border: '2px dashed var(--border)',
     borderRadius: 10,
@@ -447,20 +457,20 @@ const s = {
   uploadPlaceholder: {
     display: 'flex', flexDirection: 'column',
     alignItems: 'center', justifyContent: 'center',
-    gap: 2, padding: '12px 8px', textAlign: 'center',
+    gap: 2, padding: '10px 8px', textAlign: 'center',
   },
   uploadIconWrap: {
-    width: 44, height: 44, borderRadius: '50%',
-    background: 'rgba(139,28,28,0.08)',
+    width: 40, height: 40, borderRadius: '50%',
+    background: 'rgba(139,28,28,0.09)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    color: 'var(--crimson)', marginBottom: 6,
-    border: '1.5px solid rgba(139,28,28,0.15)',
+    color: 'var(--crimson)', marginBottom: 8,
+    border: '1px solid rgba(139,28,28,0.18)',
   },
-  uploadTextGroup: { display: 'flex', flexDirection: 'column', gap: 2 },
+  uploadTextGroup: { display: 'flex', flexDirection: 'column', gap: 1 },
   uploadTitle: {
-    fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3,
+    fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3,
   },
-  uploadHint: { fontSize: 11, color: 'var(--text-muted)' },
+  uploadHint: { fontSize: 10, color: 'var(--text-muted)' },
   uploadingState: {
     display: 'flex', flexDirection: 'column',
     alignItems: 'center', gap: 10,
