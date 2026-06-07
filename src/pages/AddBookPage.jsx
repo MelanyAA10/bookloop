@@ -209,7 +209,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
             )}
 
             {/* Cover + Fields */}
-            <div style={isMobile ? s.layoutMobile : s.layout}>
+            <div style={isMobile ? s.layoutTablet : s.layout}>
 
               {/* Cover Upload */}
               <div style={s.coverZone}>
@@ -218,6 +218,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
                   <div
                     style={{
                       ...s.coverUpload,
+                      ...(isMobile ? { height: 155 } : {}),
                       ...(dragOver ? s.coverDragOver : {}),
                       ...(showCover ? { padding: 0, border: 'none' } : {}),
                     }}
@@ -248,9 +249,10 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
                         <div style={s.uploadIconWrap}>
                           <BookIcon />
                         </div>
-                        <span style={s.uploadTitle}>Agrega la portada</span>
-                        <span style={s.uploadHint}>de tu libro aquí</span>
-                        <span style={s.uploadFormats}>JPG · PNG</span>
+                        <div style={s.uploadTextGroup}>
+                          <span style={s.uploadTitle}>Agrega la portada</span>
+                          <span style={s.uploadHint}>de tu libro aquí</span>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -404,15 +406,15 @@ const s = {
     flexShrink: 0, transition: 'background 0.15s',
   },
   body: { padding: '22px 22px 24px', display: 'flex', flexDirection: 'column', gap: 16 },
-  layout: { display: 'grid', gridTemplateColumns: '155px 1fr', gap: 20, alignItems: 'start' },
-  layoutMobile: { display: 'flex', flexDirection: 'column', gap: 16 },
+  layout: { display: 'grid', gridTemplateColumns: '120px 1fr', gap: 18, alignItems: 'start' },
+  layoutTablet: { display: 'grid', gridTemplateColumns: '110px 1fr', gap: 14, alignItems: 'start' },
   coverZone: { display: 'flex', flexDirection: 'column', gap: 8 },
   coverLabel: {
     fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
     textTransform: 'uppercase', letterSpacing: '0.8px', margin: 0,
   },
   coverUpload: {
-    height: 210,
+    height: 175,
     background: 'var(--bg-surface)',
     border: '2px dashed var(--border)',
     borderRadius: 10,
@@ -445,25 +447,20 @@ const s = {
   uploadPlaceholder: {
     display: 'flex', flexDirection: 'column',
     alignItems: 'center', justifyContent: 'center',
-    gap: 4, padding: 16, textAlign: 'center',
+    gap: 2, padding: '12px 8px', textAlign: 'center',
   },
   uploadIconWrap: {
-    width: 56, height: 56, borderRadius: '50%',
+    width: 44, height: 44, borderRadius: '50%',
     background: 'rgba(139,28,28,0.08)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    color: 'var(--crimson)', marginBottom: 8,
+    color: 'var(--crimson)', marginBottom: 6,
     border: '1.5px solid rgba(139,28,28,0.15)',
   },
+  uploadTextGroup: { display: 'flex', flexDirection: 'column', gap: 2 },
   uploadTitle: {
-    fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3,
+    fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3,
   },
-  uploadHint: { fontSize: 12, color: 'var(--text-muted)' },
-  uploadFormats: {
-    fontSize: 10, color: 'var(--text-muted)', marginTop: 6,
-    background: 'var(--bg-primary)', borderRadius: 20,
-    padding: '3px 10px', border: '1px solid var(--border)',
-    letterSpacing: '0.5px', fontWeight: 500,
-  },
+  uploadHint: { fontSize: 11, color: 'var(--text-muted)' },
   uploadingState: {
     display: 'flex', flexDirection: 'column',
     alignItems: 'center', gap: 10,
