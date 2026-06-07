@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Logo from './Logo';
 import { useUser } from '../context/UserContext';
+import Notificaciones from './Notificaciones';
 
 export default function Navbar({
   activePage = 'discovery',
@@ -145,6 +146,8 @@ export default function Navbar({
             + Add Book
           </button>
         )}
+
+        <Notificaciones />
 
         <button
           style={styles.avatar}
