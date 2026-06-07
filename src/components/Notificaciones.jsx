@@ -41,6 +41,16 @@ const timeAgo = (iso) => {
   return `hace ${days}d`;
 };
 
+// Convierte el body crudo en texto legible (las tarjetas de préstamo van codificadas)
+const friendlyBody = (body) => {
+  if (!body) return '';
+  if (body.startsWith('[[LOAN]]')) {
+    if (body.includes('"kind":"return"')) return 'Te envió una solicitud de devolución 📕';
+    return 'Te envió una solicitud de préstamo 📚';
+  }
+  return body;
+};
+
 // ── Toast individual ─────────────────────────────────────────────────────────
 function NotificationToast({ notif, onDismiss, onNavigate }) {
   const [visible, setVisible] = useState(false);
@@ -130,7 +140,7 @@ function NotificationToast({ notif, onDismiss, onNavigate }) {
               fontSize: 12, color: 'var(--text-secondary)', margin: '3px 0 0',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
-              {notif.body}
+              {friendlyBody(notif.body)}
             </p>
           )}
           <span style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3, display: 'block' }}>
@@ -330,7 +340,7 @@ export default function Notificaciones({ onNavigate }) {
                 )}
                 <div style={{ flex: 1, minWidth: 0, marginLeft: n.read ? 18 : 0 }}>
                   <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{n.title}</p>
-                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.body}</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{friendlyBody(n.body)}</p>
                   <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{timeAgo(n.createdAt)}</span>
                 </div>
               </div>
