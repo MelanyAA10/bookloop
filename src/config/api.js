@@ -30,6 +30,46 @@ export const fetchUserById = async (userId) => {
   }
 };
 
+// ── Cloudinary: subir una imagen y obtener su URL ──────────────────────────────
+export const uploadToCloudinary = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', 'bookloop_preset');
+  const response = await fetch('https://api.cloudinary.com/v1_1/dkjzvjeln/image/upload', {
+    method: 'POST',
+    body: formData,
+  });
+  if (!response.ok) throw new Error('Cloudinary upload failed');
+  const data = await response.json();
+  return data.secure_url;
+};
+
+// ── Préstamos (sobre el micro de libros) ───────────────────────────────────────
+export const lendBook = (bookId, borrowerId) =>
+  apiFetch(`/books/${bookId}/lend`, {
+    method: 'POST',
+    body: JSON.stringify({ borrowerId }),
+  });
+
+export const returnBook = (bookId) =>
+  apiFetch(`/books/${bookId}/return`, { method: 'POST' });
+
+export const addReview = (bookId, author, text, stars) =>
+  apiFetch(`/books/${bookId}/reviews`, {
+    method: 'POST',
+    body: JSON.stringify({ author, text, stars }),
+  });
+
+export const getReviews = (bookId) =>
+  apiFetch(`/books/${bookId}/reviews`);
+
+// Libros disponibles del dueño / prestados a un usuario (para los dropdowns del chat)
+export const getAvailableBooks = (ownerId) =>
+  apiFetch(`/books/chat/available?ownerId=${ownerId}`);
+
+export const getBorrowedBooks = (userId) =>
+  apiFetch(`/books/chat/borrowed?userId=${userId}`);
+
 export const mapBook = (book, ownerProfile = null) => {
   const ownerName =
     ownerProfile?.name ||
@@ -64,6 +104,8 @@ export const mapBook = (book, ownerProfile = null) => {
     description: book.description || book.synopsis   || null,
     uploadedBy:  book.uploadedBy  || null,
     loanDays:    loanDays,
+    available:   book.available !== undefined ? book.available : true,
+    borrowedBy:  book.borrowedBy  || null,
     owner: {
       name:     ownerName,
       initials: ownerInitials,

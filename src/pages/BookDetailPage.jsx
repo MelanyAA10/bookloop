@@ -333,7 +333,17 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
                 }}
               />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
-                <Badge variant="default">Available for Loan</Badge>
+                {book.available ? (
+                  <Badge variant="default">Available for Loan</Badge>
+                ) : (
+                  <span style={{
+                    display: 'inline-block', padding: '4px 12px', borderRadius: 20,
+                    fontSize: 12, fontWeight: 600, background: 'rgba(201,64,64,0.12)',
+                    color: '#C94040', border: '1px solid rgba(201,64,64,0.3)', width: 'fit-content',
+                  }}>
+                    Currently Borrowed
+                  </span>
+                )}
                 <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                   Owner: {book.owner?.name} · {book.loanDays || book.owner?.maxDays || 14} days max
                 </p>
