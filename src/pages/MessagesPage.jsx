@@ -3,8 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { Avatar } from '../components/UI';
 import {
-  apiFetch, uploadToCloudinary, lendBook, returnBook,
-  addReview, getAvailableBooks, getBorrowedBooks, patchMessageContent,
+  apiFetch, uploadToCloudinary, lendBook, returnBook, getAvailableBooks, getBorrowedBooks, patchMessageContent,
 } from '../config/api';
 import { useUser } from '../context/UserContext';
 
@@ -379,33 +378,40 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
 
   // Confirmar devolución (lo hace el dueño) -> /return + review + PATCH tarjeta
   const confirmReturn = async (msg, card, good) => {
-    try {
-      if (good) {
-        const res = await returnBook(card.bookId);
-        if (!res.ok) {
-          const e = await res.json().catch(() => ({}));
-          throw new Error(e?.message || 'No se pudo confirmar la devolución.');
-        }
-        const photoLinks = PHOTO_SLOTS.filter(l => card.photos?.[l]).map(l => `${l}: ${card.photos[l]}`).join(' | ');
-        const text = [card.comment, photoLinks ? `[Condición devolución] ${photoLinks}` : ''].filter(Boolean).join(' — ') || 'Devuelto';
-        await addReview(card.bookId, card.borrowerName || 'Usuario', text, card.rating || 5).catch(() => {});
+  try {
+    if (good) {
+      const res = await returnBook(card.bookId);
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e?.message || 'No se pudo confirmar la devolución.');
       }
-      // Muta el JSON del mensaje en MongoDB: status pending → returned / return_rejected
-      const newStatus = good ? 'returned' : 'return_rejected';
-      const updatedCard = { ...card, status: newStatus };
-      await patchMessageContent(activeId, msg.id, encodeLoan(updatedCard));
-      setMessages(prev => prev.map(m =>
-        m.id === msg.id ? { ...m, text: encodeLoan(updatedCard) } : m
-      ));
-      const txt = good
-        ? `✓ Devolución confirmada: "${card.bookTitle}" en buen estado`
-        : `✕ Devolución no confirmada: "${card.bookTitle}"`;
-      await postMessage(txt);
-      setMessages(prev => [...prev, { id: 'sys-' + Date.now(), senderId: myId, sender: 'me', text: txt, time: formatTime(new Date().toISOString()) }]);
-    } catch (err) {
-      alert(err.message || 'Error al confirmar la devolución.');
+
+      // Review al prestador (va al perfil, no al libro)
+      await apiFetch(`/users/${card.lenderId}/reviews`, {
+        method: 'POST',
+        body: JSON.stringify({
+          reviewerName: user?.name || 'Usuario',
+          text: card.comment || '',
+          stars: card.rating || 5,
+        }),
+      }).catch(() => {});
     }
-  };
+
+    const newStatus = good ? 'returned' : 'return_rejected';
+    const updatedCard = { ...card, status: newStatus };
+    await patchMessageContent(activeId, msg.id, encodeLoan(updatedCard));
+    setMessages(prev => prev.map(m =>
+      m.id === msg.id ? { ...m, text: encodeLoan(updatedCard) } : m
+    ));
+    const txt = good
+      ? `Devolución confirmada: "${card.bookTitle}" en buen estado`
+      : `Devolución no confirmada: "${card.bookTitle}"`;
+    await postMessage(txt);
+    setMessages(prev => [...prev, { id: 'sys-' + Date.now(), senderId: myId, sender: 'me', text: txt, time: formatTime(new Date().toISOString()) }]);
+  } catch (err) {
+    alert(err.message || 'Error al confirmar la devolución.');
+  }
+};
 
   const filteredConversations = conversations.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase())
