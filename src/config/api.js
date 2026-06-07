@@ -63,6 +63,13 @@ export const addReview = (bookId, author, text, stars) =>
 export const getReviews = (bookId) =>
   apiFetch(`/books/${bookId}/reviews`);
 
+// Persiste el status de una tarjeta [[LOAN]] actualizando su content en MongoDB
+export const patchMessageContent = (chatId, messageId, content) =>
+  apiFetch(`/chats/${chatId}/messages/${messageId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ content }),
+  });
+
 // Libros disponibles del dueño / prestados a un usuario (para los dropdowns del chat)
 export const getAvailableBooks = (ownerId) =>
   apiFetch(`/books/chat/available?ownerId=${ownerId}`);

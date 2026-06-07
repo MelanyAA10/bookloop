@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar';
 import { Avatar } from '../components/UI';
 import {
   apiFetch, uploadToCloudinary, lendBook, returnBook,
-  addReview, getAvailableBooks, getBorrowedBooks,
+  addReview, getAvailableBooks, getBorrowedBooks, patchMessageContent,
 } from '../config/api';
 import { useUser } from '../context/UserContext';
 
@@ -84,10 +84,7 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
   const [showSidebar, setShowSidebar] = useState(true);
   const messagesEndRef = useRef(null);
 
-  // Estado local de tarjetas resueltas (id de mensaje -> nuevo status)
-  const [loanOverrides, setLoanOverrides] = useState({});
-
-  // Modales
+  // Estado de modales
   const [lendOpen, setLendOpen] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
   const [modalBooks, setModalBooks] = useState([]);
@@ -347,7 +344,7 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
     }
   };
 
-  // Aceptar préstamo (lo hace el receptor) -> /lend
+  // Aceptar préstamo (lo hace el receptor) -> /lend + PATCH tarjeta
   const acceptLoan = async (msg, card) => {
     try {
       const res = await lendBook(card.bookId, myId);
@@ -355,7 +352,12 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
         const e = await res.json().catch(() => ({}));
         throw new Error(e?.message || 'No se pudo aceptar (¿ya está prestado?)');
       }
-      setLoanOverrides(prev => ({ ...prev, [msg.id]: 'accepted' }));
+      // Muta el JSON del mensaje en MongoDB: status pending → accepted
+      const updatedCard = { ...card, status: 'accepted' };
+      await patchMessageContent(activeId, msg.id, encodeLoan(updatedCard));
+      setMessages(prev => prev.map(m =>
+        m.id === msg.id ? { ...m, text: encodeLoan(updatedCard) } : m
+      ));
       await postMessage(`✓ Préstamo aceptado: "${card.bookTitle}"`);
       setMessages(prev => [...prev, { id: 'sys-' + Date.now(), senderId: myId, sender: 'me', text: `✓ Préstamo aceptado: "${card.bookTitle}"`, time: formatTime(new Date().toISOString()) }]);
     } catch (err) {
@@ -364,14 +366,18 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
   };
 
   const declineLoan = async (msg, card) => {
-    setLoanOverrides(prev => ({ ...prev, [msg.id]: 'declined' }));
     try {
+      const updatedCard = { ...card, status: 'declined' };
+      await patchMessageContent(activeId, msg.id, encodeLoan(updatedCard));
+      setMessages(prev => prev.map(m =>
+        m.id === msg.id ? { ...m, text: encodeLoan(updatedCard) } : m
+      ));
       await postMessage(`✕ Préstamo rechazado: "${card.bookTitle}"`);
       setMessages(prev => [...prev, { id: 'sys-' + Date.now(), senderId: myId, sender: 'me', text: `✕ Préstamo rechazado: "${card.bookTitle}"`, time: formatTime(new Date().toISOString()) }]);
     } catch { /* ignore */ }
   };
 
-  // Confirmar devolución (lo hace el dueño) -> /return + review
+  // Confirmar devolución (lo hace el dueño) -> /return + review + PATCH tarjeta
   const confirmReturn = async (msg, card, good) => {
     try {
       if (good) {
@@ -380,13 +386,20 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
           const e = await res.json().catch(() => ({}));
           throw new Error(e?.message || 'No se pudo confirmar la devolución.');
         }
-        // Guardar review con el rating + comentario del receptor
         const photoLinks = PHOTO_SLOTS.filter(l => card.photos?.[l]).map(l => `${l}: ${card.photos[l]}`).join(' | ');
         const text = [card.comment, photoLinks ? `[Condición devolución] ${photoLinks}` : ''].filter(Boolean).join(' — ') || 'Devuelto';
         await addReview(card.bookId, card.borrowerName || 'Usuario', text, card.rating || 5).catch(() => {});
       }
-      setLoanOverrides(prev => ({ ...prev, [msg.id]: good ? 'returned' : 'return_rejected' }));
-      const txt = good ? `✓ Devolución confirmada: "${card.bookTitle}" en buen estado` : `✕ Devolución no confirmada: "${card.bookTitle}"`;
+      // Muta el JSON del mensaje en MongoDB: status pending → returned / return_rejected
+      const newStatus = good ? 'returned' : 'return_rejected';
+      const updatedCard = { ...card, status: newStatus };
+      await patchMessageContent(activeId, msg.id, encodeLoan(updatedCard));
+      setMessages(prev => prev.map(m =>
+        m.id === msg.id ? { ...m, text: encodeLoan(updatedCard) } : m
+      ));
+      const txt = good
+        ? `✓ Devolución confirmada: "${card.bookTitle}" en buen estado`
+        : `✕ Devolución no confirmada: "${card.bookTitle}"`;
       await postMessage(txt);
       setMessages(prev => [...prev, { id: 'sys-' + Date.now(), senderId: myId, sender: 'me', text: txt, time: formatTime(new Date().toISOString()) }]);
     } catch (err) {
@@ -516,7 +529,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
                       msg={msg}
                       card={card}
                       myId={myId}
-                      override={loanOverrides[msg.id]}
                       onAccept={() => acceptLoan(msg, card)}
                       onDecline={() => declineLoan(msg, card)}
                       onConfirmReturn={(good) => confirmReturn(msg, card, good)}
@@ -594,9 +606,9 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
 }
 
 // ════════════════════════ TARJETA DE PRÉSTAMO ════════════════════════
-function LoanCard({ msg, card, myId, override, onAccept, onDecline, onConfirmReturn }) {
+function LoanCard({ msg, card, myId, onAccept, onDecline, onConfirmReturn }) {
   const isMe = msg.sender === 'me';
-  const status = override || card.status;
+  const status = card.status;
   const photos = PHOTO_SLOTS.filter(l => card.photos?.[l]);
 
   const isRequest = card.kind === 'request';
