@@ -83,7 +83,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [showSidebar, setShowSidebar] = useState(true);
   const messagesEndRef = useRef(null);
-  const pollRef = useRef(null);
 
   // Estado local de tarjetas resueltas (id de mensaje -> nuevo status)
   const [loanOverrides, setLoanOverrides] = useState({});
@@ -117,43 +116,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, activeId]);
-
-  // ── Polling: refresca el chat activo cada 4s para ver mensajes/tarjetas nuevas ──
-  const silentRefresh = async (chatId) => {
-    if (!chatId) return;
-    try {
-      const res = await apiFetch(`/chats/${chatId}/messages?page=0&size=${MESSAGES_PAGE_SIZE}&sort=sentAt,desc`);
-      const data = await res.json();
-      const list = (data.content || [])
-        .map(m => ({
-          id: m.id,
-          senderId: m.senderId,
-          sender: m.senderId === myId ? 'me' : 'them',
-          text: m.content,
-          time: formatTime(m.sentAt),
-        }))
-        .reverse();
-      // Solo actualiza si hay cambios reales (evita re-render innecesario)
-      setMessages(prev => {
-        const prevReal = prev.filter(x => !String(x.id).startsWith('temp-') && !String(x.id).startsWith('sys-'));
-        const lastPrev = prevReal[prevReal.length - 1];
-        const lastNew = list[list.length - 1];
-        if (lastPrev && lastNew && lastPrev.id === lastNew.id && prevReal.length === list.length) {
-          return prev; // sin novedades
-        }
-        return list;
-      });
-    } catch (err) {
-      // silencioso
-    }
-  };
-
-  useEffect(() => {
-    if (!activeId) return;
-    pollRef.current = setInterval(() => silentRefresh(activeId), 4000);
-    return () => clearInterval(pollRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId, myId]);
 
   const mapChat = (c) => {
     const other = (c.participants || []).find(p => p.userId !== myId) || {};
@@ -189,17 +151,15 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
   const fetchMessages = async (chatId, page = 0) => {
     setLoadingMessages(true);
     try {
-      const res = await apiFetch(`/chats/${chatId}/messages?page=${page}&size=${MESSAGES_PAGE_SIZE}&sort=sentAt,desc`);
+      const res = await apiFetch(`/chats/${chatId}/messages?page=${page}&size=${MESSAGES_PAGE_SIZE}&sort=sentAt,asc`);
       const data = await res.json();
-      const list = (data.content || [])
-        .map(m => ({
-          id: m.id,
-          senderId: m.senderId,
-          sender: m.senderId === myId ? 'me' : 'them',
-          text: m.content,
-          time: formatTime(m.sentAt),
-        }))
-        .reverse();
+      const list = (data.content || []).map(m => ({
+        id: m.id,
+        senderId: m.senderId,
+        sender: m.senderId === myId ? 'me' : 'them',
+        text: m.content,
+        time: formatTime(m.sentAt),
+      }));
       setMessages(prev => page > 0 ? [...list, ...prev] : list);
       setMsgPage(data.page ?? page);
       setMsgTotalPages(data.totalPages || 1);
