@@ -3,26 +3,24 @@ import React, { useState, useEffect } from 'react';
 import './styles/globals.css';
 import { useUser } from './context/UserContext';
 
-import LoginPage       from './pages/LoginPage';
-import SignupPage      from './pages/SignupPage';
-import DiscoveryPage   from './pages/DiscoveryPage';
-import BookDetailPage  from './pages/BookDetailPage';
-import AddBookPage     from './pages/AddBookPage';
-import CommunityPage   from './pages/CommunityPage';
-import MessagesPage    from './pages/MessagesPage';
-import ProfilePage     from './pages/ProfilePage';
+import LoginPage      from './pages/LoginPage';
+import SignupPage     from './pages/SignupPage';
+import DiscoveryPage  from './pages/DiscoveryPage';
+import BookDetailPage from './pages/BookDetailPage';
+import AddBookPage    from './pages/AddBookPage';
+import CommunityPage  from './pages/CommunityPage';
+import MessagesPage   from './pages/MessagesPage';
+import ProfilePage    from './pages/ProfilePage';
 
 const PAGES = {
-  login:       LoginPage,
-  signup:      SignupPage,
-  discovery:   DiscoveryPage,
-  bookdetail:  BookDetailPage,
-  loanconfirm: LoanConfirmPage,
-  loanreturn:  LoanReturnPage,
-  addbook:     AddBookPage,
-  community:   CommunityPage,
-  messages:    MessagesPage,
-  profile:     ProfilePage,
+  login:      LoginPage,
+  signup:     SignupPage,
+  discovery:  DiscoveryPage,
+  bookdetail: BookDetailPage,
+  addbook:    AddBookPage,
+  community:  CommunityPage,
+  messages:   MessagesPage,
+  profile:    ProfilePage,
 };
 
 const THEME_KEY = 'bookloop-theme';
@@ -113,19 +111,6 @@ export default function App() {
         <BookDetailPage
           onNavigate={navigate}
           bookId={selectedBookId || 1}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-        />
-      </>
-    );
-  }
-
-  if (page === 'loanconfirm') {
-    return (
-      <>
-        <LoanConfirmPage
-          onNavigate={navigate}
-          bookId={selectedBookId}
           theme={theme}
           onToggleTheme={toggleTheme}
         />
