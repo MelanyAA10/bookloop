@@ -21,6 +21,16 @@ const PULSE_STYLE = `@keyframes pulse {
   50%      { opacity: 0.45; }
 }`;
 
+const TrashIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+  </svg>
+);
+
 const StarPicker = ({ value, onChange }) => (
   <div style={{ display: 'flex', gap: 4 }}>
     {[1, 2, 3, 4, 5].map(s => (
@@ -43,7 +53,7 @@ function DeleteConfirmModal({ bookTitle, onConfirm, onCancel, deleting }) {
   return (
     <div style={m.overlay}>
       <div style={m.modal}>
-        <p style={m.icon}>🗑️</p>
+        <div style={{ color: '#C94040' }}><TrashIcon size={32} /></div>
         <h3 style={m.heading}>¿Eliminar publicación?</h3>
         <p style={m.text}>
           Estás a punto de eliminar <strong>"{bookTitle}"</strong>. Esta acción no se puede deshacer.
@@ -73,7 +83,6 @@ const m = {
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
     boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
   },
-  icon:    { fontSize: 36, margin: 0 },
   heading: { fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', margin: 0, textAlign: 'center' },
   text:    { fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.6, margin: 0 },
   actions: { display: 'flex', gap: 10, marginTop: 8, width: '100%' },
@@ -299,7 +308,7 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
             <button style={s.back} onClick={() => onNavigate('discovery')}>← Back to Discovery</button>
             {isOwner && (
               <button style={s.deleteBtn} onClick={() => setShowDeleteModal(true)}>
-                🗑️ Eliminar publicación
+                <TrashIcon size={13} /> Eliminar publicación
               </button>
             )}
           </div>
@@ -473,7 +482,7 @@ const s = {
     background: 'none', border: '1.5px solid #C94040', borderRadius: 7,
     color: '#C94040', fontSize: 12, fontFamily: "'DM Sans', sans-serif",
     fontWeight: 500, cursor: 'pointer', padding: '6px 14px',
-    transition: 'background 0.15s',
+    display: 'flex', alignItems: 'center', gap: 6,
   },
   layout: {
     display: 'grid', gridTemplateColumns: '240px 1fr', gap: 28,
