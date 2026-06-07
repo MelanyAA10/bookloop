@@ -7,8 +7,6 @@ import LoginPage       from './pages/LoginPage';
 import SignupPage      from './pages/SignupPage';
 import DiscoveryPage   from './pages/DiscoveryPage';
 import BookDetailPage  from './pages/BookDetailPage';
-import LoanConfirmPage from './pages/LoanConfirmPage';
-import LoanReturnPage  from './pages/LoanReturnPage';
 import AddBookPage     from './pages/AddBookPage';
 import CommunityPage   from './pages/CommunityPage';
 import MessagesPage    from './pages/MessagesPage';
