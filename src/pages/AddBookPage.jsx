@@ -250,7 +250,7 @@ export default function AddBookPage({ onNavigate = () => {}, theme, onToggleThem
                           <BookIcon />
                         </div>
                         <div style={s.uploadTextGroup}>
-                          <span style={s.uploadTitle}>Agrega la portada</span>
+                          <span style={s.uploadHint}>Agrega la portada</span>
                           <span style={s.uploadHint}>de tu libro aquí</span>
                         </div>
                       </div>
