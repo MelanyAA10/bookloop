@@ -38,6 +38,57 @@ const StarPicker = ({ value, onChange }) => (
   </div>
 );
 
+// Modal de confirmación de borrado
+function DeleteConfirmModal({ bookTitle, onConfirm, onCancel, deleting }) {
+  return (
+    <div style={m.overlay}>
+      <div style={m.modal}>
+        <p style={m.icon}>🗑️</p>
+        <h3 style={m.heading}>¿Eliminar publicación?</h3>
+        <p style={m.text}>
+          Estás a punto de eliminar <strong>"{bookTitle}"</strong>. Esta acción no se puede deshacer.
+        </p>
+        <div style={m.actions}>
+          <button style={m.cancelBtn} onClick={onCancel} disabled={deleting}>
+            Cancelar
+          </button>
+          <button style={m.deleteBtn} onClick={onConfirm} disabled={deleting}>
+            {deleting ? 'Eliminando...' : 'Sí, eliminar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const m = {
+  overlay: {
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 1000, backdropFilter: 'blur(3px)',
+  },
+  modal: {
+    background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+    borderRadius: 14, padding: '32px 28px', maxWidth: 360, width: '90%',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+    boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+  },
+  icon:    { fontSize: 36, margin: 0 },
+  heading: { fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', margin: 0, textAlign: 'center' },
+  text:    { fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.6, margin: 0 },
+  actions: { display: 'flex', gap: 10, marginTop: 8, width: '100%' },
+  cancelBtn: {
+    flex: 1, padding: '9px 0', borderRadius: 8, border: '1.5px solid var(--border)',
+    background: 'transparent', color: 'var(--text-primary)', fontSize: 13,
+    fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', fontWeight: 500,
+  },
+  deleteBtn: {
+    flex: 1, padding: '9px 0', borderRadius: 8, border: 'none',
+    background: '#C94040', color: '#fff', fontSize: 13,
+    fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', fontWeight: 600,
+  },
+};
+
 export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, theme, onToggleTheme }) {
   const { user } = useUser();
 
@@ -54,6 +105,10 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError,      setReviewError]      = useState('');
   const [reviewSuccess,    setReviewSuccess]    = useState(false);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting,        setDeleting]        = useState(false);
+  const [deleteError,     setDeleteError]     = useState('');
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -133,10 +188,27 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
     }
   };
 
+  const handleDeleteConfirm = async () => {
+    const bookIdStr = typeof bookId === 'object' ? bookId?.id : bookId;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      const res = await apiFetch(`/books/${bookIdStr}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      setShowDeleteModal(false);
+      onNavigate('discovery');
+    } catch (err) {
+      setDeleteError('No se pudo eliminar el libro. Intenta de nuevo.');
+      setDeleting(false);
+    }
+  };
+
   const handleRetry = () => {
     const id = typeof bookId === 'object' ? bookId?.id ?? 1 : bookId ?? 1;
     fetchBook(id);
   };
+
+  const isOwner = user?.id && book?.uploadedBy && book.uploadedBy === user.id;
 
   if (loadingBook) {
     return (
@@ -212,8 +284,29 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
       <div style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}>
         <Navbar activePage="discovery" onNavigate={onNavigate} theme={theme} onToggleTheme={onToggleTheme} />
 
+        {showDeleteModal && (
+          <DeleteConfirmModal
+            bookTitle={book.title}
+            onConfirm={handleDeleteConfirm}
+            onCancel={() => { setShowDeleteModal(false); setDeleteError(''); }}
+            deleting={deleting}
+          />
+        )}
+
         <div style={s.body}>
-          <button style={s.back} onClick={() => onNavigate('discovery')}>← Back to Discovery</button>
+          {/* Fila superior: back + botón eliminar si es el dueño */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <button style={s.back} onClick={() => onNavigate('discovery')}>← Back to Discovery</button>
+            {isOwner && (
+              <button style={s.deleteBtn} onClick={() => setShowDeleteModal(true)}>
+                🗑️ Eliminar publicación
+              </button>
+            )}
+          </div>
+
+          {deleteError && (
+            <p style={{ fontSize: 12, color: '#DC2626', marginBottom: 12 }}>{deleteError}</p>
+          )}
 
           <div style={isMobile ? s.layoutMobile : s.layout}>
             <div style={s.left}>
@@ -254,29 +347,27 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
                   <p style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-primary)' }}>{book.owner?.name}</p>
                   <Stars value={book.owner?.rating || 0} size={13} />
                 </div>
-                <Button
-                  variant="primary"
-                  style={{ marginLeft: 'auto', fontSize: 12, padding: '6px 14px' }}
-                  onClick={() => {
-                    if (!book.uploadedBy) {
-                      alert('Este libro no tiene un dueño asociado para chatear.');
-                      return;
-                    }
-                    if (user?.id && book.uploadedBy === user.id) {
-                      alert('Este es tu propio libro.');
-                      return;
-                    }
-                    onNavigate('messages', {
-                      chatTarget: {
-                        userId: book.uploadedBy,
-                        name: book.owner?.name || 'Usuario',
-                        initials: book.owner?.initials || '??',
-                      },
-                    });
-                  }}
-                >
-                  Message
-                </Button>
+                {!isOwner && (
+                  <Button
+                    variant="primary"
+                    style={{ marginLeft: 'auto', fontSize: 12, padding: '6px 14px' }}
+                    onClick={() => {
+                      if (!book.uploadedBy) {
+                        alert('Este libro no tiene un dueño asociado para chatear.');
+                        return;
+                      }
+                      onNavigate('messages', {
+                        chatTarget: {
+                          userId: book.uploadedBy,
+                          name: book.owner?.name || 'Usuario',
+                          initials: book.owner?.initials || '??',
+                        },
+                      });
+                    }}
+                  >
+                    Message
+                  </Button>
+                )}
               </div>
 
               <SectionLabel>The Story</SectionLabel>
@@ -376,7 +467,13 @@ const s = {
   back: {
     background: 'none', border: 'none', fontSize: 13,
     color: 'var(--text-muted)', cursor: 'pointer',
-    fontFamily: "'DM Sans', sans-serif", marginBottom: 20, padding: 0,
+    fontFamily: "'DM Sans', sans-serif", padding: 0,
+  },
+  deleteBtn: {
+    background: 'none', border: '1.5px solid #C94040', borderRadius: 7,
+    color: '#C94040', fontSize: 12, fontFamily: "'DM Sans', sans-serif",
+    fontWeight: 500, cursor: 'pointer', padding: '6px 14px',
+    transition: 'background 0.15s',
   },
   layout: {
     display: 'grid', gridTemplateColumns: '240px 1fr', gap: 28,
