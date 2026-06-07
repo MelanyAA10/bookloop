@@ -63,12 +63,21 @@ export const addReview = (bookId, author, text, stars) =>
 export const getReviews = (bookId) =>
   apiFetch(`/books/${bookId}/reviews`);
 
-// Persiste el status de una tarjeta [[LOAN]] actualizando su content en MongoDB
-export const patchMessageContent = (chatId, messageId, content) =>
-  apiFetch(`/chats/${chatId}/messages/${messageId}`, {
+// ── Mensajes ───────────────────────────────────────────────────────────────────
+// Persiste el status de una tarjeta [[LOAN]] actualizando su content en MongoDB.
+// Se llama después de aceptar/rechazar/devolver para que al recargar los botones
+// no reaparezcan.
+export const patchMessageContent = async (chatId, messageId, content) => {
+  const res = await apiFetch(`/chats/${chatId}/messages/${messageId}`, {
     method: 'PATCH',
     body: JSON.stringify({ content }),
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message || `PATCH mensaje falló: ${res.status}`);
+  }
+  return res.json();
+};
 
 // Libros disponibles del dueño / prestados a un usuario (para los dropdowns del chat)
 export const getAvailableBooks = (ownerId) =>
@@ -90,7 +99,6 @@ export const mapBook = (book, ownerProfile = null) => {
       ? ownerName.trim().split(/\s+/).map(p => p[0]).join('').toUpperCase().slice(0, 2)
       : '??');
 
-  // loanDays viene del backend directamente
   const loanDays = book.loanDays > 0 ? book.loanDays : 14;
 
   return {

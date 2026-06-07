@@ -12,18 +12,31 @@ module.exports = async function (context, req) {
 
   // Construir query string original sin la subscription-key (el frontend no la manda)
   const query = { ...req.query };
-  delete query['subscription-key']; // por si acaso
+  delete query['subscription-key'];
   const qs = new URLSearchParams(query).toString();
 
   const url = `${AZURE_URL}/${restOfPath}?subscription-key=${API_KEY}${qs ? '&' + qs : ''}`;
+
+  const hasBody = !['GET', 'HEAD'].includes(req.method);
+
+  // El body puede llegar como objeto (Azure lo parsea), string, o undefined.
+  // Lo normalizamos siempre a JSON string para no mandar undefined al backend.
+  let bodyStr;
+  if (hasBody) {
+    if (req.body === undefined || req.body === null) {
+      bodyStr = '{}';
+    } else if (typeof req.body === 'string') {
+      bodyStr = req.body;
+    } else {
+      bodyStr = JSON.stringify(req.body);
+    }
+  }
 
   try {
     const response = await fetch(url, {
       method: req.method,
       headers: { 'Content-Type': 'application/json' },
-      body: ['GET', 'HEAD'].includes(req.method)
-        ? undefined
-        : JSON.stringify(req.body),
+      body: hasBody ? bodyStr : undefined,
     });
 
     const contentType = response.headers.get('content-type') || '';
