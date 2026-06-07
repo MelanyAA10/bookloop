@@ -5,18 +5,9 @@ import { Avatar } from '../components/UI';
 import { apiFetch } from '../config/api';
 import { useUser } from '../context/UserContext';
 
-// ── Icons ────────────────────────────────────────────────────────────────────
-const BookIcon = ({ size = 16, color = 'currentColor' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-  </svg>
-);
-
 const SendIcon = ({ size = 16, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <line x1="22" y1="2" x2="11" y2="13" />
-    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
   </svg>
 );
 
@@ -83,23 +74,19 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Cargar lista de chats al entrar
   useEffect(() => {
     if (myId) fetchChats(0);
   }, [myId]);
 
-  // Si venimos desde "Message" en un libro, abrir/crear ese chat
   useEffect(() => {
     if (chatTarget && myId) openOrCreateChat(chatTarget);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatTarget, myId]);
 
-  // Scroll al final cuando cambian los mensajes
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, activeId]);
 
-  // Mapea un chat del backend a lo que la UI necesita
   const mapChat = (c) => {
     const other = (c.participants || []).find(p => p.userId !== myId) || {};
     return {
@@ -142,7 +129,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
         text: m.content,
         time: formatTime(m.sentAt),
       }));
-      // si es una página posterior, anteponer; si es la primera, reemplazar
       setMessages(prev => page > 0 ? [...list, ...prev] : list);
       setMsgPage(data.page ?? page);
       setMsgTotalPages(data.totalPages || 1);
@@ -154,14 +140,28 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
     }
   };
 
+  // Marca como leídos todos los mensajes recibidos del chat activo
+  const markChatAsRead = async (chatId) => {
+    if (!myId || !chatId) return;
+    // Optimista: quitar badge al instante
+    setConversations(prev =>
+      prev.map(c => c.id === chatId ? { ...c, unread: 0 } : c)
+    );
+    try {
+      await apiFetch(`/chats/${chatId}/messages/read?readerId=${myId}`, { method: 'POST' });
+    } catch (err) {
+      console.error('Error marcando como leídos:', err);
+    }
+  };
+
   const handleSelectConv = (id) => {
     setActiveId(id);
     setMsgPage(0);
     fetchMessages(id, 0);
+    markChatAsRead(id); // ← aquí se marcan como leídos
     if (isMobile) setShowSidebar(false);
   };
 
-  // Abre el chat con el destinatario (si existe en la lista) o lo crea
   const openOrCreateChat = async (target) => {
     if (!myId || !target?.userId) return;
     try {
@@ -177,10 +177,11 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
       });
       if (!res.ok) throw new Error('status ' + res.status);
       const chat = await res.json();
-      await fetchChats(0);          // refrescar la lista (puede ser nuevo)
+      await fetchChats(0);
       setActiveId(chat.id);
       setMsgPage(0);
       fetchMessages(chat.id, 0);
+      markChatAsRead(chat.id);
       if (isMobile) setShowSidebar(false);
     } catch (err) {
       console.error('Error abriendo/creando chat:', err);
@@ -193,7 +194,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
     const content = input.trim();
     setInput('');
     setSending(true);
-    // optimista
     const tempId = 'temp-' + Date.now();
     setMessages(prev => [...prev, { id: tempId, sender: 'me', text: content, time: formatTime(new Date().toISOString()) }]);
     try {
@@ -203,11 +203,9 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
       });
       if (!res.ok) throw new Error('status ' + res.status);
       const saved = await res.json();
-      // reemplazar el temporal por el real
       setMessages(prev => prev.map(m => m.id === tempId
         ? { id: saved.id, sender: 'me', text: saved.content, time: formatTime(saved.sentAt) }
         : m));
-      // actualizar preview en la lista
       setConversations(prev => prev.map(c => c.id === activeId
         ? { ...c, preview: content, time: formatTime(new Date().toISOString()) }
         : c));
@@ -221,7 +219,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
   };
 
   const activeConv = conversations.find(c => c.id === activeId);
-
   const filteredConversations = conversations.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase())
   );
@@ -265,7 +262,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
               {loadingChats && (
                 <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>Cargando chats…</div>
               )}
-
               {!loadingChats && filteredConversations.length === 0 && (
                 <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
                   No tienes conversaciones aún. Abre un libro y toca "Message" para empezar.
@@ -273,35 +269,51 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
               )}
 
               {filteredConversations.map(c => (
-                <div key={c.id} onClick={() => handleSelectConv(c.id)} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid var(--border-light)', cursor: 'pointer', background: activeId === c.id ? 'var(--bg-surface)' : 'transparent', borderLeft: activeId === c.id ? '3px solid var(--crimson)' : '3px solid transparent', transition: 'all 0.15s' }}>
+                <div
+                  key={c.id}
+                  onClick={() => handleSelectConv(c.id)}
+                  style={{
+                    display: 'flex', gap: 10, alignItems: 'center', padding: '12px 14px',
+                    borderBottom: '1px solid var(--border-light)', cursor: 'pointer',
+                    background: activeId === c.id ? 'var(--bg-surface)' : 'transparent',
+                    borderLeft: activeId === c.id ? '3px solid var(--crimson)' : '3px solid transparent',
+                    transition: 'all 0.15s',
+                  }}
+                >
                   <div style={{ position: 'relative', flexShrink: 0 }}>
                     <Avatar initials={c.initials} size={40} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{c.name}</span>
+                      <span style={{ fontSize: 13, fontWeight: c.unread > 0 ? 700 : 600, color: 'var(--text-primary)' }}>{c.name}</span>
                       <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>{c.time}</span>
                     </div>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.preview}</p>
+                    <p style={{
+                      fontSize: 11,
+                      color: c.unread > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
+                      fontWeight: c.unread > 0 ? 600 : 400,
+                      margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {c.preview}
+                    </p>
                   </div>
-                  {c.unread > 0 && <div style={{ background: 'var(--crimson)', color: '#fff', borderRadius: '50%', width: 18, height: 18, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{c.unread}</div>}
+                  {c.unread > 0 && (
+                    <div style={{
+                      background: 'var(--crimson)', color: '#fff', borderRadius: '50%',
+                      width: 20, height: 20, fontSize: 10, fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}>
+                      {c.unread > 9 ? '9+' : c.unread}
+                    </div>
+                  )}
                 </div>
               ))}
 
-              {/* Paginación de chats */}
               {!loadingChats && chatsTotalPages > 1 && (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: 12 }}>
-                  <button
-                    onClick={() => fetchChats(chatsPage - 1)}
-                    disabled={chatsPage === 0}
-                    style={{ border: '1px solid var(--border-light)', borderRadius: 8, padding: '4px 10px', fontSize: 12, cursor: chatsPage === 0 ? 'default' : 'pointer', opacity: chatsPage === 0 ? 0.4 : 1, background: 'var(--bg-surface)', color: 'var(--text-secondary)' }}
-                  >←</button>
+                  <button onClick={() => fetchChats(chatsPage - 1)} disabled={chatsPage === 0} style={{ border: '1px solid var(--border-light)', borderRadius: 8, padding: '4px 10px', fontSize: 12, cursor: chatsPage === 0 ? 'default' : 'pointer', opacity: chatsPage === 0 ? 0.4 : 1, background: 'var(--bg-surface)', color: 'var(--text-secondary)' }}>←</button>
                   <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{chatsPage + 1} / {chatsTotalPages}</span>
-                  <button
-                    onClick={() => fetchChats(chatsPage + 1)}
-                    disabled={chatsPage + 1 >= chatsTotalPages}
-                    style={{ border: '1px solid var(--border-light)', borderRadius: 8, padding: '4px 10px', fontSize: 12, cursor: chatsPage + 1 >= chatsTotalPages ? 'default' : 'pointer', opacity: chatsPage + 1 >= chatsTotalPages ? 0.4 : 1, background: 'var(--bg-surface)', color: 'var(--text-secondary)' }}
-                  >→</button>
+                  <button onClick={() => fetchChats(chatsPage + 1)} disabled={chatsPage + 1 >= chatsTotalPages} style={{ border: '1px solid var(--border-light)', borderRadius: 8, padding: '4px 10px', fontSize: 12, cursor: chatsPage + 1 >= chatsTotalPages ? 'default' : 'pointer', opacity: chatsPage + 1 >= chatsTotalPages ? 0.4 : 1, background: 'var(--bg-surface)', color: 'var(--text-secondary)' }}>→</button>
                 </div>
               )}
             </div>
@@ -311,8 +323,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
         {/* ── Chat ── */}
         {(!isMobile || !showSidebar) && activeConv && (
           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg-primary)' }}>
-
-            {/* Header */}
             <div style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-light)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
               {isMobile && (
                 <button onClick={() => setShowSidebar(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', alignItems: 'center' }}>
@@ -325,9 +335,7 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
               </div>
             </div>
 
-            {/* Messages */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 8px' }}>
-              {/* Cargar mensajes anteriores */}
               {msgPage + 1 < msgTotalPages && (
                 <div style={{ textAlign: 'center', marginBottom: 12 }}>
                   <button
@@ -343,7 +351,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
               {loadingMessages && messages.length === 0 && (
                 <div style={{ textAlign: 'center', padding: 20, fontSize: 12, color: 'var(--text-muted)' }}>Cargando mensajes…</div>
               )}
-
               {!loadingMessages && messages.length === 0 && (
                 <div style={{ textAlign: 'center', padding: 20, fontSize: 12, color: 'var(--text-muted)' }}>No hay mensajes aún. ¡Escribe el primero!</div>
               )}
@@ -370,7 +377,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
             <div style={{ background: 'var(--bg-secondary)', borderTop: '1px solid var(--border-light)', padding: '10px 14px', display: 'flex', gap: 8, alignItems: 'center' }}>
               <input
                 style={{ flex: 1, padding: '9px 14px', border: '1.5px solid var(--border)', borderRadius: 20, fontSize: 13, fontFamily: "'DM Sans', sans-serif", color: 'var(--text-primary)', background: 'var(--bg-primary)', outline: 'none' }}
@@ -390,7 +396,6 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
           </div>
         )}
 
-        {/* Estado vacío cuando no hay chat activo (desktop) */}
         {!isMobile && !activeConv && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
             Selecciona una conversación para empezar

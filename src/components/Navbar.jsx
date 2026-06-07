@@ -147,7 +147,7 @@ export default function Navbar({
           </button>
         )}
 
-        <Notificaciones />
+        <Notificaciones onNavigate={onNavigate} />
 
         <button
           style={styles.avatar}
