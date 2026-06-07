@@ -257,7 +257,23 @@ export default function BookDetailPage({ onNavigate = () => {}, bookId = 1, them
                 <Button
                   variant="primary"
                   style={{ marginLeft: 'auto', fontSize: 12, padding: '6px 14px' }}
-                  onClick={() => onNavigate('messages')}
+                  onClick={() => {
+                    if (!book.uploadedBy) {
+                      alert('Este libro no tiene un dueño asociado para chatear.');
+                      return;
+                    }
+                    if (user?.id && book.uploadedBy === user.id) {
+                      alert('Este es tu propio libro.');
+                      return;
+                    }
+                    onNavigate('messages', {
+                      chatTarget: {
+                        userId: book.uploadedBy,
+                        name: book.owner?.name || 'Usuario',
+                        initials: book.owner?.initials || '??',
+                      },
+                    });
+                  }}
                 >
                   Message
                 </Button>

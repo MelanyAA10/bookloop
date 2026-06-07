@@ -44,6 +44,7 @@ export default function App() {
 
   const [page, setPage] = useState(() => (user ? 'discovery' : 'login'));
   const [selectedBookId, setSelectedBookId] = useState(null);
+  const [chatTarget, setChatTarget] = useState(null); // destinatario al abrir un chat desde un libro
 
   const [theme, setTheme] = useState(getInitialTheme);
 
@@ -84,6 +85,7 @@ export default function App() {
   const navigate = (to, data = null) => {
     if (data?.id) setSelectedBookId(data.id);
     if (to === 'discovery') setSelectedBookId(null);
+    if (to === 'messages') setChatTarget(data?.chatTarget || null);
     if (PAGES[to]) setPage(to);
   };
 
@@ -140,7 +142,8 @@ export default function App() {
       <Page
         onNavigate={navigate}
         theme={theme}
-        onToggleTheme={toggleTheme}        
+        onToggleTheme={toggleTheme}
+        {...(page === 'messages' ? { chatTarget } : {})}
       />
     </>
   );
