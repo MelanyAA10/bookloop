@@ -464,7 +464,7 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
                       <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>{c.time}</span>
                     </div>
                     <p style={{ fontSize: 11, color: c.unread > 0 ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: c.unread > 0 ? 600 : 400, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {c.preview.startsWith(LOAN_PREFIX) ? '📚 Solicitud de préstamo' : c.preview}
+                      {c.preview.startsWith(LOAN_PREFIX) ? 'Solicitud de préstamo' : c.preview}
                     </p>
                   </div>
                   {c.unread > 0 && (
@@ -629,7 +629,7 @@ function LoanCard({ msg, card, myId, onAccept, onDecline, onConfirmReturn }) {
       <div style={{ maxWidth: '88%', width: 320, border: '1.5px solid var(--crimson)', borderRadius: 14, overflow: 'hidden', background: 'var(--bg-secondary)', boxShadow: '0 2px 12px rgba(139,28,28,0.12)' }}>
         <div style={{ background: 'linear-gradient(135deg, var(--crimson-dark, #5A0E0E), var(--crimson))', padding: '10px 14px' }}>
           <p style={{ margin: 0, color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>
-            {isRequest ? '📚 ' : '↩ '}{statusLabel}
+            {statusLabel}
           </p>
         </div>
         <div style={{ padding: '12px 14px' }}>
