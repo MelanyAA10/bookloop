@@ -108,8 +108,12 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
 
   useEffect(() => { if (myId) fetchChats(0); }, [myId]);
 
+  const consumedChatTarget = useRef(null);
   useEffect(() => {
-    if (chatTarget && myId) openOrCreateChat(chatTarget);
+    if (chatTarget && myId && chatTarget !== consumedChatTarget.current) {
+      consumedChatTarget.current = chatTarget;
+      openOrCreateChat(chatTarget);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatTarget, myId]);
 
@@ -300,10 +304,17 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
       ts: Date.now(),
     };
     const tempId = 'temp-' + Date.now();
-    setMessages(prev => [...prev, { id: tempId, senderId: myId, sender: 'me', text: encodeLoan(card), time: formatTime(new Date().toISOString()) }]);
-    const saved = await postMessage(encodeLoan(card));
-    setMessages(prev => prev.map(m => m.id === tempId
-      ? { id: saved.id, senderId: myId, sender: 'me', text: saved.content, time: formatTime(saved.sentAt) } : m));
+    const encoded = encodeLoan(card);
+    setMessages(prev => [...prev, { id: tempId, senderId: myId, sender: 'me', text: encoded, time: formatTime(new Date().toISOString()) }]);
+    try {
+      const saved = await postMessage(encoded);
+      setMessages(prev => prev.map(m => m.id === tempId
+        ? { id: saved.id, senderId: myId, sender: 'me', text: saved.content, time: formatTime(saved.sentAt) } : m));
+    } catch (err) {
+      console.error('Error enviando solicitud de préstamo:', err);
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      throw err; // re-lanzar para que el modal lo atrape
+    }
   };
 
   // Enviar tarjeta de DEVOLUCIÓN (la manda quien tiene el libro)
@@ -323,10 +334,17 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
       ts: Date.now(),
     };
     const tempId = 'temp-' + Date.now();
-    setMessages(prev => [...prev, { id: tempId, senderId: myId, sender: 'me', text: encodeLoan(card), time: formatTime(new Date().toISOString()) }]);
-    const saved = await postMessage(encodeLoan(card));
-    setMessages(prev => prev.map(m => m.id === tempId
-      ? { id: saved.id, senderId: myId, sender: 'me', text: saved.content, time: formatTime(saved.sentAt) } : m));
+    const encoded = encodeLoan(card);
+    setMessages(prev => [...prev, { id: tempId, senderId: myId, sender: 'me', text: encoded, time: formatTime(new Date().toISOString()) }]);
+    try {
+      const saved = await postMessage(encoded);
+      setMessages(prev => prev.map(m => m.id === tempId
+        ? { id: saved.id, senderId: myId, sender: 'me', text: saved.content, time: formatTime(saved.sentAt) } : m));
+    } catch (err) {
+      console.error('Error enviando solicitud de devolución:', err);
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      throw err;
+    }
   };
 
   // Aceptar préstamo (lo hace el receptor) -> /lend

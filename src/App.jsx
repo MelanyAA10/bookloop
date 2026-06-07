@@ -81,7 +81,7 @@ export default function App() {
   const navigate = (to, data = null) => {
     if (data?.id) setSelectedBookId(data.id);
     if (to === 'discovery') setSelectedBookId(null);
-    if (to === 'messages') setChatTarget(data?.chatTarget || null);
+    if (to === 'messages') setChatTarget(data?.chatTarget ?? null);
     if (PAGES[to]) setPage(to);
   };
 
