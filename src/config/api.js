@@ -1,11 +1,16 @@
 // src/config/api.js
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_AZURE_URL || 'https://bookloop-api.azure-api.net/v1';
+const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 export const apiFetch = async (endpoint, options = {}) => {
   const url = `${API_BASE}${endpoint}`;
   const response = await fetch(url, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      'Ocp-Apim-Subscription-Key': API_KEY,
+      ...options.headers,
+    },
   });
   return response;
 };
