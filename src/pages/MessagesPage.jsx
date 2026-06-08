@@ -403,6 +403,9 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
       rating,
       borrowerId: myId,
       borrowerName: user?.name || 'Usuario',
+      // El prestador es el otro participante del chat. Lo guardamos aquí para que,
+      // al confirmar la devolución, la review se cree en SU perfil.
+      lenderId: activeConv?.otherUserId || book.owner?.id || book.ownerId || null,
       status: 'pending',
       ts: Date.now(),
     };
@@ -456,40 +459,47 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
 
   // Confirmar devolución (lo hace el dueño) -> /return + review + PATCH tarjeta
   const confirmReturn = async (msg, card, good) => {
-  try {
-    if (good) {
-      const res = await returnBook(card.bookId);
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e?.message || 'No se pudo confirmar la devolución.');
+    try {
+      if (good) {
+        const res = await returnBook(card.bookId);
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({}));
+          throw new Error(e?.message || 'No se pudo confirmar la devolución.');
+        }
+
+        // Review al PRESTADOR (va a su perfil, no al libro).
+        // confirmReturn solo lo ejecuta el prestador (canAct = !isMe), así que
+        // myId ES el id del prestador → sirve de fallback si la tarjeta es vieja
+        // y no trae lenderId.
+        const lenderId = card.lenderId || myId;
+        if (lenderId) {
+          await apiFetch(`/users/${lenderId}/reviews`, {
+            method: 'POST',
+            body: JSON.stringify({
+              // Quien escribe la review es el prestatario (el que devolvió).
+              reviewerName: card.borrowerName || 'Usuario',
+              text: card.comment || '',
+              stars: card.rating || 5,
+            }),
+          }).catch((e) => console.warn('No se pudo crear la review:', e));
+        }
       }
 
-      // Review al prestador (va al perfil, no al libro)
-      await apiFetch(`/users/${card.lenderId}/reviews`, {
-        method: 'POST',
-        body: JSON.stringify({
-          reviewerName: user?.name || 'Usuario',
-          text: card.comment || '',
-          stars: card.rating || 5,
-        }),
-      }).catch(() => {});
+      const newStatus = good ? 'returned' : 'return_rejected';
+      const updatedCard = { ...card, status: newStatus };
+      await patchMessageContent(activeId, msg.id, encodeLoan(updatedCard));
+      setMessages(prev => prev.map(m =>
+        m.id === msg.id ? { ...m, text: encodeLoan(updatedCard) } : m
+      ));
+      const txt = good
+        ? `Devolución confirmada: "${card.bookTitle}" en buen estado`
+        : `Devolución no confirmada: "${card.bookTitle}"`;
+      await postMessage(txt);
+      setMessages(prev => [...prev, { id: 'sys-' + Date.now(), senderId: myId, sender: 'me', text: txt, time: formatTime(new Date().toISOString()) }]);
+    } catch (err) {
+      alert(err.message || 'Error al confirmar la devolución.');
     }
-
-    const newStatus = good ? 'returned' : 'return_rejected';
-    const updatedCard = { ...card, status: newStatus };
-    await patchMessageContent(activeId, msg.id, encodeLoan(updatedCard));
-    setMessages(prev => prev.map(m =>
-      m.id === msg.id ? { ...m, text: encodeLoan(updatedCard) } : m
-    ));
-    const txt = good
-      ? `Devolución confirmada: "${card.bookTitle}" en buen estado`
-      : `Devolución no confirmada: "${card.bookTitle}"`;
-    await postMessage(txt);
-    setMessages(prev => [...prev, { id: 'sys-' + Date.now(), senderId: myId, sender: 'me', text: txt, time: formatTime(new Date().toISOString()) }]);
-  } catch (err) {
-    alert(err.message || 'Error al confirmar la devolución.');
-  }
-};
+  };
 
   const filteredConversations = conversations.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase())
