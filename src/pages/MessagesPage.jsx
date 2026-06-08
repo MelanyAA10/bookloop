@@ -1,5 +1,5 @@
 // src/pages/MessagesPage.jsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Navbar from '../components/Navbar';
 import { Avatar } from '../components/UI';
 import {
@@ -42,8 +42,9 @@ const ReturnIcon = ({ size = 16, color = 'currentColor' }) => (
   </svg>
 );
 
-const CHATS_PAGE_SIZE = 15;
+const CHATS_PAGE_SIZE    = 15;
 const MESSAGES_PAGE_SIZE = 20;
+const POLL_INTERVAL_MS   = 4000; // intervalo de polling para mensajes entrantes
 const PHOTO_SLOTS = ['Front Cover', 'Back Cover', 'Spine', 'Interior'];
 
 const getInitials = (name) => {
@@ -81,7 +82,10 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [showSidebar, setShowSidebar] = useState(true);
-  const messagesEndRef = useRef(null);
+  const messagesEndRef  = useRef(null);
+  const pollIntervalRef = useRef(null);      // handle del setInterval del polling
+  const knownMsgIdsRef  = useRef(new Set()); // IDs ya en pantalla — deduplicación
+  const loadingMsgRef   = useRef(false);     // guard: no pollear mientras carga historial
 
   // Estado de modales
   const [lendOpen, setLendOpen] = useState(false);
@@ -149,6 +153,7 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
   };
 
   const fetchMessages = async (chatId, page = 0) => {
+    loadingMsgRef.current = true;
     setLoadingMessages(true);
     try {
       const res = await apiFetch(`/chats/${chatId}/messages?page=${page}&size=${MESSAGES_PAGE_SIZE}&sort=sentAt,asc`);
@@ -160,6 +165,16 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
         text: m.content,
         time: formatTime(m.sentAt),
       }));
+
+      // Registrar IDs en el Set de deduplicación del polling.
+      // page=0 → carga fresca: reiniciamos el Set con los IDs de esta página.
+      // page>0 → historial más antiguo prepended: añadimos sin borrar los recientes.
+      if (page === 0) {
+        knownMsgIdsRef.current = new Set(list.map(m => m.id));
+      } else {
+        list.forEach(m => knownMsgIdsRef.current.add(m.id));
+      }
+
       setMessages(prev => page > 0 ? [...list, ...prev] : list);
       setMsgPage(data.page ?? page);
       setMsgTotalPages(data.totalPages || 1);
@@ -167,9 +182,68 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
       console.error('Error fetching messages:', err);
       if (page === 0) setMessages([]);
     } finally {
+      loadingMsgRef.current = false;
       setLoadingMessages(false);
     }
   };
+
+  // ── Polling de mensajes nuevos ────────────────────────────────────────────────
+  // Pide la página más reciente (desc) y filtra los IDs ya conocidos antes de
+  // inyectarlos en el estado. No toca el historial paginado ni provoca re-renders
+  // innecesarios cuando no hay mensajes nuevos.
+  const fetchNewMessages = useCallback(async (chatId) => {
+    // Silenciar si el historial inicial aún está cargando (evita race condition).
+    if (!chatId || loadingMsgRef.current) return;
+    try {
+      const res = await apiFetch(
+        `/chats/${chatId}/messages?page=0&size=5&sort=sentAt,desc`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+
+      // El backend devuelve orden desc → invertir para mantener orden cronológico.
+      const recent = (data.content || []).reverse().map(m => ({
+        id: m.id,
+        senderId: m.senderId,
+        sender: m.senderId === myId ? 'me' : 'them',
+        text: m.content,
+        time: formatTime(m.sentAt),
+      }));
+
+      // Filtro estricto por ID: solo los que NO están ya en pantalla.
+      const newMsgs = recent.filter(m => !knownMsgIdsRef.current.has(m.id));
+
+      if (newMsgs.length > 0) {
+        // Registrar los nuevos IDs ANTES de actualizar el estado para que un
+        // segundo tick del intervalo no los vuelva a insertar.
+        newMsgs.forEach(m => knownMsgIdsRef.current.add(m.id));
+        setMessages(prev => [...prev, ...newMsgs]);
+      }
+    } catch (err) {
+      // Silencioso: un fallo de polling no debe interrumpir la UX.
+      console.warn('[Polling] Error no crítico:', err);
+    }
+  }, [myId]);
+
+  // ── Arrancar/limpiar el intervalo de polling al cambiar de conversación ────────
+  useEffect(() => {
+    // Resetear IDs conocidos al cambiar de conversación para evitar falsos positivos.
+    knownMsgIdsRef.current = new Set();
+
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    if (!activeId) return;
+
+    pollIntervalRef.current = setInterval(() => {
+      fetchNewMessages(activeId);
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [activeId, fetchNewMessages]);
 
   const markChatAsRead = async (chatId) => {
     if (!myId || !chatId) return;
@@ -236,6 +310,8 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
     setMessages(prev => [...prev, { id: tempId, senderId: myId, sender: 'me', text: content, time: formatTime(new Date().toISOString()) }]);
     try {
       const saved = await postMessage(content);
+      // Registrar el ID definitivo para que el polling no lo reinserte.
+      knownMsgIdsRef.current.add(saved.id);
       setMessages(prev => prev.map(m => m.id === tempId
         ? { id: saved.id, senderId: myId, sender: 'me', text: saved.content, time: formatTime(saved.sentAt) }
         : m));
@@ -304,6 +380,7 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
     setMessages(prev => [...prev, { id: tempId, senderId: myId, sender: 'me', text: encoded, time: formatTime(new Date().toISOString()) }]);
     try {
       const saved = await postMessage(encoded);
+      knownMsgIdsRef.current.add(saved.id);
       setMessages(prev => prev.map(m => m.id === tempId
         ? { id: saved.id, senderId: myId, sender: 'me', text: saved.content, time: formatTime(saved.sentAt) } : m));
     } catch (err) {
@@ -334,6 +411,7 @@ export default function MessagesPage({ onNavigate = () => {}, theme, onToggleThe
     setMessages(prev => [...prev, { id: tempId, senderId: myId, sender: 'me', text: encoded, time: formatTime(new Date().toISOString()) }]);
     try {
       const saved = await postMessage(encoded);
+      knownMsgIdsRef.current.add(saved.id);
       setMessages(prev => prev.map(m => m.id === tempId
         ? { id: saved.id, senderId: myId, sender: 'me', text: saved.content, time: formatTime(saved.sentAt) } : m));
     } catch (err) {
