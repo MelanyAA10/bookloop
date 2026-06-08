@@ -28,6 +28,14 @@ const PULSE_STYLE = `@keyframes pulse {
   50%      { opacity: 0.45; }
 }`;
 
+// ─── Deriva iniciales a partir de un nombre completo ──────────────────────────
+function initialsFromName(name = '') {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
 export default function ProfilePage({ onNavigate = () => {}, theme, onToggleTheme, profileId = null }) {
   // ── Datos del usuario autenticado — leídos del contexto, sin fetch ─────────
   const { user, logout } = useUser();
@@ -36,10 +44,13 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
   // false → perfil ajeno    → mostrar Message
   const isOwnProfile = !profileId || profileId === user?.id;
 
+  // Id del perfil que se está viendo: el ajeno si viene por prop, si no el propio.
+  const targetId = profileId || user?.id;
+
   // ── State ──────────────────────────────────────────────────────────────────
   const [reviews,     setReviews]     = useState([]);
   const [userBooks,   setUserBooks]   = useState([]);
-  const [showConfirm, setShowConfirm] = useState(false); 
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [loadingBooks,   setLoadingBooks]   = useState(true);
@@ -56,20 +67,25 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => { fetchReviews(); }, []);
+  // Re-fetch de reviews cada vez que cambia el perfil que se mira.
+  useEffect(() => { fetchReviews(); }, [targetId]);
   useEffect(() => { fetchBooks();   }, []);
 
-  // ── Fetch: profile reviews ─────────────────────────────────────────────────
+  // ── Fetch: reviews del usuario ─────────────────────────────────────────────
+  // El backend nuevo expone GET /users/{id}/reviews y devuelve objetos con
+  // forma: { id, userId, reviewerName, text, stars, createdAt }
   const fetchReviews = async () => {
+    if (!targetId) { setLoadingReviews(false); return; }
+
     setLoadingReviews(true);
     setErrorReviews(null);
     try {
-      const res = await apiFetch('/profile/reviews');
+      const res = await apiFetch(`/users/${targetId}/reviews`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setReviews(Array.isArray(data) ? data : data?.data ?? []);
     } catch (err) {
-      console.error('Error fetching profile reviews:', err);
+      console.error('Error fetching user reviews:', err);
       setErrorReviews('Could not load community feedback.');
     } finally {
       setLoadingReviews(false);
@@ -311,23 +327,27 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
         {reviews.length === 0 ? (
           <p style={s.emptySubtitle}>No reviews yet.</p>
         ) : (
-          reviews.map(r => (
-            <div
-              key={r.id}
-              style={{ marginBottom: 16, padding: '12px 0', borderBottom: '1px solid var(--border-light)' }}
-            >
-              <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-                <div style={s.reviewAvatar}>{r.initials}</div>
-                <div>
-                  <p style={{ fontWeight: 500, fontSize: 13, color: 'var(--text-primary)' }}>{r.name}</p>
-                  <Stars value={r.stars} size={12} />
+          reviews.map(r => {
+            // El backend devuelve reviewerName; las iniciales se derivan de él.
+            const name = r.reviewerName || 'Usuario';
+            return (
+              <div
+                key={r.id}
+                style={{ marginBottom: 16, padding: '12px 0', borderBottom: '1px solid var(--border-light)' }}
+              >
+                <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+                  <div style={s.reviewAvatar}>{initialsFromName(name)}</div>
+                  <div>
+                    <p style={{ fontWeight: 500, fontSize: 13, color: 'var(--text-primary)' }}>{name}</p>
+                    <Stars value={r.stars} size={12} />
+                  </div>
                 </div>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.65, margin: 0 }}>
+                  "{r.text}"
+                </p>
               </div>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.65, margin: 0 }}>
-                "{r.text}"
-              </p>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     );
@@ -497,8 +517,6 @@ const s = {
     fontFamily: "'DM Sans', sans-serif",
     cursor: 'pointer',
     transition: 'background 0.18s, color 0.18s',
-    // Hover se maneja inline porque los style-objects no soportan :hover
-    // — el usuario puede añadir onMouseEnter/Leave si lo desea.
   },
   confirmRow: {
     marginTop: 10,
