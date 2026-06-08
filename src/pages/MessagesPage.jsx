@@ -704,6 +704,7 @@ function LoanCard({ msg, card, myId, onAccept, onDecline, onConfirmReturn }) {
   const isMe = msg.sender === 'me';
   const status = card.status;
   const photos = PHOTO_SLOTS.filter(l => card.photos?.[l]);
+  const [zoom, setZoom] = useState(null); // { url, label } de la foto ampliada
 
   const isRequest = card.kind === 'request';
   // En request: el receptor (no el que la mandó) puede aceptar/declinar
@@ -738,7 +739,14 @@ function LoanCard({ msg, card, myId, onAccept, onDecline, onConfirmReturn }) {
           {photos.length > 0 && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '8px 0' }}>
               {photos.map(l => (
-                <img key={l} src={card.photos[l]} alt={l} title={l} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border-light)' }} />
+                <img
+                  key={l}
+                  src={card.photos[l]}
+                  alt={l}
+                  title={`${l} — clic para ampliar`}
+                  onClick={() => setZoom({ url: card.photos[l], label: l })}
+                  style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border-light)', cursor: 'zoom-in' }}
+                />
               ))}
             </div>
           )}
@@ -763,6 +771,26 @@ function LoanCard({ msg, card, myId, onAccept, onDecline, onConfirmReturn }) {
         </div>
       </div>
       <span style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{msg.time}</span>
+
+      {/* Lightbox: imagen ampliada al hacer clic en una miniatura */}
+      {zoom && (
+        <div
+          onClick={() => setZoom(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: 24, cursor: 'zoom-out' }}
+        >
+          <button
+            onClick={() => setZoom(null)}
+            style={{ position: 'absolute', top: 18, right: 22, background: 'rgba(255,255,255,0.18)', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: '50%', fontSize: 16, cursor: 'pointer' }}
+          >✕</button>
+          <img
+            src={zoom.url}
+            alt={zoom.label}
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '90vw', maxHeight: '82vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 8px 40px rgba(0,0,0,0.5)', cursor: 'default' }}
+          />
+          <span style={{ color: '#fff', fontSize: 13, marginTop: 14, fontFamily: "'DM Sans', sans-serif", opacity: 0.85 }}>{zoom.label}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -773,6 +801,10 @@ function LendModal({ books, loading, busy, onClose, onSend }) {
   const [condition, setCondition] = useState('Good');
   const [photos, setPhotos] = useState({});
   const [uploading, setUploading] = useState('');
+
+  // Validación: deben estar TODAS las fotos solicitadas + condición elegida.
+  const missingPhotos = PHOTO_SLOTS.filter(l => !photos[l]);
+  const canSend = selected && condition && missingPhotos.length === 0;
 
   const handlePhoto = async (label, file) => {
     if (!file) return;
@@ -814,8 +846,8 @@ function LendModal({ books, loading, busy, onClose, onSend }) {
                     ))}
                   </div>
 
-                  <p style={sectLbl}>Fotos de condición</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                  <p style={sectLbl}>Fotos de condición (las 4 son obligatorias)</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
                     {PHOTO_SLOTS.map(label => (
                       <label key={label} style={{ height: 70, borderRadius: 8, border: photos[label] ? '1.5px solid var(--crimson)' : '1.5px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', background: 'var(--bg-surface)' }}>
                         {photos[label] ? <img src={photos[label]} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -825,8 +857,13 @@ function LendModal({ books, loading, busy, onClose, onSend }) {
                       </label>
                     ))}
                   </div>
+                  {missingPhotos.length > 0 && (
+                    <p style={{ fontSize: 11, color: 'var(--crimson)', margin: '0 0 14px' }}>
+                      Falta(n): {missingPhotos.join(', ')}
+                    </p>
+                  )}
 
-                  <button disabled={busy} onClick={() => onSend(selected, condition, photos)} style={{ ...btnPrimary, width: '100%', padding: '11px 0', opacity: busy ? 0.6 : 1 }}>
+                  <button disabled={busy || !canSend} onClick={() => onSend(selected, condition, photos)} style={{ ...btnPrimary, width: '100%', padding: '11px 0', opacity: (busy || !canSend) ? 0.5 : 1, cursor: (busy || !canSend) ? 'default' : 'pointer' }}>
                     {busy ? 'Enviando…' : 'Enviar solicitud de préstamo'}
                   </button>
                 </>
@@ -847,6 +884,10 @@ function ReturnModal({ books, loading, busy, onClose, onSend }) {
   const [uploading, setUploading] = useState('');
   const [comment, setComment] = useState('');
   const [rating, setRating] = useState(5);
+
+  // Validación: deben estar TODAS las fotos solicitadas + condición elegida.
+  const missingPhotos = PHOTO_SLOTS.filter(l => !photos[l]);
+  const canSend = selected && condition && missingPhotos.length === 0;
 
   const handlePhoto = async (label, file) => {
     if (!file) return;
@@ -888,8 +929,8 @@ function ReturnModal({ books, loading, busy, onClose, onSend }) {
                     ))}
                   </div>
 
-                  <p style={sectLbl}>Fotos</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                  <p style={sectLbl}>Fotos (las 4 son obligatorias)</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
                     {PHOTO_SLOTS.map(label => (
                       <label key={label} style={{ height: 70, borderRadius: 8, border: photos[label] ? '1.5px solid var(--crimson)' : '1.5px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', background: 'var(--bg-surface)' }}>
                         {photos[label] ? <img src={photos[label]} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -899,6 +940,11 @@ function ReturnModal({ books, loading, busy, onClose, onSend }) {
                       </label>
                     ))}
                   </div>
+                  {missingPhotos.length > 0 && (
+                    <p style={{ fontSize: 11, color: 'var(--crimson)', margin: '0 0 14px' }}>
+                      Falta(n): {missingPhotos.join(', ')}
+                    </p>
+                  )}
 
                   <p style={sectLbl}>Califica al prestador</p>
                   <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
@@ -910,7 +956,7 @@ function ReturnModal({ books, loading, busy, onClose, onSend }) {
                   <p style={sectLbl}>Comentario sobre el usuario</p>
                   <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Escribe un comentario…" style={{ width: '100%', minHeight: 60, padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', fontSize: 13, fontFamily: "'DM Sans', sans-serif", color: 'var(--text-primary)', background: 'var(--bg-primary)', outline: 'none', boxSizing: 'border-box', resize: 'vertical', marginBottom: 14 }} />
 
-                  <button disabled={busy} onClick={() => onSend(selected, condition, photos, comment, rating)} style={{ ...btnPrimary, width: '100%', padding: '11px 0', opacity: busy ? 0.6 : 1 }}>
+                  <button disabled={busy || !canSend} onClick={() => onSend(selected, condition, photos, comment, rating)} style={{ ...btnPrimary, width: '100%', padding: '11px 0', opacity: (busy || !canSend) ? 0.5 : 1, cursor: (busy || !canSend) ? 'default' : 'pointer' }}>
                     {busy ? 'Enviando…' : 'Enviar devolución'}
                   </button>
                 </>
