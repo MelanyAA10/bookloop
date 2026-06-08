@@ -11,14 +11,17 @@ const COVER_H = 280;
 const COVER_W_MOBILE = 140;
 const COVER_H_MOBILE = 196;
 
+const PAGE_SIZE = 12;
+
 export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTheme }) {
   const [activeGenre, setActiveGenre] = useState('All');
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalElements, setTotalElements] = useState(0);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const booksPerPage = isMobile ? 6 : 8;
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -26,13 +29,25 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => { fetchBooks(); }, []);
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, activeGenre]);
+  useEffect(() => { fetchBooks(currentPage); }, [currentPage]);
 
-  const fetchBooks = async () => {
+  useEffect(() => {
+    setBooks([]);
+    setCurrentPage(0);
+  }, [searchTerm, activeGenre]);
+
+  // Cuando currentPage ya es 0 y cambia un filtro, el effect de [currentPage]
+  // no se dispara de nuevo, así que lo forzamos con un effect separado.
+  useEffect(() => {
+    if (currentPage === 0) fetchBooks(0);
+  }, [searchTerm, activeGenre]);
+
+  const fetchBooks = async (page) => {
     setLoading(true);
     try {
-      const response = await apiFetch('/books?size=100');
+      const genreParam = activeGenre === 'All' ? '' : `&genre=${encodeURIComponent(activeGenre)}`;
+      const searchParam = searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : '';
+      const response = await apiFetch(`/books?page=${page}&size=${PAGE_SIZE}${genreParam}${searchParam}`);
       const result = await response.json();
       const rawBooks = result?.content ?? (Array.isArray(result) ? result : []);
       const booksWithOwners = await Promise.all(
@@ -42,6 +57,8 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
         })
       );
       setBooks(booksWithOwners);
+      setTotalPages(result?.totalPages ?? 1);
+      setTotalElements(result?.totalElements ?? 0);
     } catch (error) {
       console.error('Error fetching books:', error);
       setBooks([]);
@@ -49,20 +66,6 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
       setLoading(false);
     }
   };
-
-  const filteredBooks = books.filter(book => {
-    const matchesGenre = activeGenre === 'All' || book.genre === activeGenre;
-    const matchesSearch =
-      book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      book.author.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesGenre && matchesSearch;
-  });
-
-  const filteredTotalPages = Math.ceil(filteredBooks.length / booksPerPage) || 1;
-  const paginatedBooks = filteredBooks.slice(
-    (currentPage - 1) * booksPerPage,
-    currentPage * booksPerPage
-  );
 
   const featuredBook = books[0] ?? null;
   const alsoAvailable = books.slice(1, 4);
@@ -174,7 +177,7 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
             <div style={{ marginTop: 36 }}>
               <SectionLabel style={{ marginBottom: 16, fontSize: 12 }}>Recent Additions</SectionLabel>
               <div style={isMobile ? s.gridMobile : s.grid}>
-                {paginatedBooks.map(book => (
+                {books.map(book => (
                   <div key={book.id} style={s.gridItem} onClick={() => onNavigate('bookdetail', { id: book.id })}>
                     <div
                       style={{
@@ -200,11 +203,23 @@ export default function DiscoveryPage({ onNavigate = () => {}, theme, onToggleTh
                 ))}
               </div>
 
-              {filteredTotalPages > 1 && (
+              {totalPages > 1 && (
                 <div style={s.pagination}>
-                  <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} style={{ ...s.pageBtn, opacity: currentPage === 1 ? 0.5 : 1 }}>← Previous</button>
-                  <span style={s.pageInfo}>Page {currentPage} of {filteredTotalPages}</span>
-                  <button disabled={currentPage === filteredTotalPages} onClick={() => setCurrentPage(p => p + 1)} style={{ ...s.pageBtn, opacity: currentPage === filteredTotalPages ? 0.5 : 1 }}>Next →</button>
+                  <button
+                    disabled={currentPage === 0}
+                    onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    style={{ ...s.pageBtn, opacity: currentPage === 0 ? 0.5 : 1 }}
+                  >
+                    ← Anterior
+                  </button>
+                  <span style={s.pageInfo}>Página {currentPage + 1} de {totalPages}</span>
+                  <button
+                    disabled={currentPage >= totalPages - 1}
+                    onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    style={{ ...s.pageBtn, opacity: currentPage >= totalPages - 1 ? 0.5 : 1 }}
+                  >
+                    Siguiente →
+                  </button>
                 </div>
               )}
             </div>
