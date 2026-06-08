@@ -83,7 +83,11 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
       const res = await apiFetch(`/users/${targetId}/reviews`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setReviews(Array.isArray(data) ? data : data?.data ?? []);
+      // El backend de ms_usuarios responde { message, reviews: [...] }
+      const list = Array.isArray(data)
+        ? data
+        : data?.reviews ?? data?.data ?? [];
+      setReviews(list);
     } catch (err) {
       console.error('Error fetching user reviews:', err);
       setErrorReviews('Could not load community feedback.');
@@ -125,13 +129,6 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
 
     const university = user?.university || 'Not specified';
 
-    // rating: si el backend lo envía lo usamos; de lo contrario mostramos '—'
-    const rating = user.rating ?? '—';
-
-    // totalBooks se deriva de los libros que ya cargamos del catálogo.
-    // Mientras cargan mostramos '…' para no mostrar 0 prematuramente.
-    const totalBooks = loadingBooks ? '…' : ownedBooks.length;
-
     return (
       <Card style={{ textAlign: 'center', marginBottom: 16, background: 'var(--bg-secondary)' }}>
         <div style={s.avatar}>
@@ -140,18 +137,7 @@ export default function ProfilePage({ onNavigate = () => {}, theme, onToggleThem
           </span>
         </div>
         <h2 style={s.userName}>{user.name}</h2>
-        <p style={s.userMeta}>{university}</p>
-
-        <div style={s.statsRow}>
-          <div style={s.stat}>
-            <span style={{ ...s.statNum, color: 'var(--crimson-light)' }}>{rating}</span>
-            <span style={s.statLabel}>Rating</span>
-          </div>
-          <div style={s.stat}>
-            <span style={{ ...s.statNum, color: 'var(--text-primary)' }}>{totalBooks}</span>
-            <span style={s.statLabel}>Books</span>
-          </div>
-        </div>
+        <p style={{ ...s.userMeta, marginBottom: 16 }}>{university}</p>
 
         {/* ── Botón principal: depende de si es perfil propio o ajeno ─────── */}
         {isOwnProfile ? (
