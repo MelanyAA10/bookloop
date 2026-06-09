@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useUser } from '../context/UserContext';
 
-const NOTIF_URL = import.meta.env.VITE_NOTIF_URL;
+const NOTIF_URL = 'https://ms-notifi-e8gpahhfhwb0h4gf.canadacentral-01.azurewebsites.net';
 
 const BellIcon = ({ size = 18, color = '#fff' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
