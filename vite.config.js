@@ -11,7 +11,7 @@ export default defineConfig({
     // En Azure SWA, el enrutamiento /api → Function lo maneja Azure directamente.
     proxy: {
       '/api': {
-        target: 'https://bookloop-api.azure-api.net',
+        target: 'https://bookloop-cert-api.azure-api.net',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '/v1'),
       }

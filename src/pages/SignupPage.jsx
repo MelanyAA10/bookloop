@@ -20,6 +20,9 @@ function validateEmail(val) {
 function validatePassword(val) {
   if (!val) return 'Password is required';
   if (val.length < 8) return 'Password must be at least 8 characters';
+  if (!/[A-Z]/.test(val)) return 'Password must contain at least one uppercase letter';
+  if (!/[0-9]/.test(val)) return 'Password must contain at least one number';
+  if (!/[!@#$%^&*]/.test(val)) return 'Password must contain at least one special character (!@#$%^&*)';
   return '';
 }
 

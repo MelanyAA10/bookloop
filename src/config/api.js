@@ -1,5 +1,5 @@
 // src/config/api.js
-const API_BASE = import.meta.env.VITE_AZURE_URL || 'https://bookloop-api.azure-api.net/v1';
+const API_BASE = import.meta.env.VITE_AZURE_URL || 'https://bookloop-cert-api.azure-api.net/v1';
 const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 export const apiFetch = async (endpoint, options = {}) => {
